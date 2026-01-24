@@ -114,7 +114,7 @@ body {
 
 .layout {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(200px, 2fr) minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -223,7 +223,7 @@ body {
 
 #ranking.ranking li:has(span) {
   display: grid;
-  grid-template-columns: 50px 1fr 80px;
+  grid-template-columns: 30px 1fr 40px;
 }
 
 .store {
@@ -445,6 +445,45 @@ body {
     justify-content: center;
   }
 
+  .ranking-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ranking-pagination button {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .ranking-pagination button:hover:not(:disabled) {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .ranking-pagination button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .ranking-pagination span {
+    color: var(--muted);
+    font-size: 14px;
+    min-width: 80px;
+    text-align: center;
+  }
+
   .ranking-tabs button {
     background: var(--panel-2);
     border: 1px solid var(--border);
@@ -491,7 +530,19 @@ body {
   }
 
   #menu-ranking.ranking li {
-    grid-template-columns: 50px 50px 1fr 80px 90px;
+    display: grid;
+    grid-template-columns: 30px 30px 1fr 70px 50px;
+    align-items: center;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  #menu-ranking.ranking li:not(:has(span)) {
+    display: block;
+    grid-template-columns: none;
   }
 
 .loading-logo {
@@ -736,25 +787,159 @@ body {
   }
 }
 
-:root {
-  --layout-width: 1200px;
-  --layout-scale: 1;
-}
-
 @media (max-width: 1200px) {
-  :root {
-    --layout-scale: clamp(0.6, calc((100vw - 24px) / 1200), 1);
-  }
-
   body {
     overflow-x: hidden;
   }
 
   .shell {
-    width: min(100%, var(--layout-width));
-    max-width: var(--layout-width);
-    transform: scale(var(--layout-scale));
-    transform-origin: top center;
+    padding: 16px 12px 24px;
+  }
+
+  /* Improve mobile layout responsiveness */
+  @media (max-width: 900px) {
+    .topbar {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .top-actions {
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .ghost {
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+
+    .layout {
+      grid-template-columns: minmax(0, 1.5fr) minmax(150px, 1fr);
+      gap: 8px;
+    }
+
+    .board-panel {
+      padding: 12px;
+    }
+
+    .hud {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .hud-block {
+      padding: 6px 4px;
+      min-width: 0;
+    }
+
+    .hud-block:nth-child(4),
+    .hud-block:nth-child(5) {
+      grid-column: span 1;
+    }
+
+    .label {
+      font-size: 9px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .value {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .sidebar {
+      gap: 6px;
+    }
+
+    /* Hide ranking and store on mobile, keep next block and theme */
+    .sidebar .card:nth-child(2),
+    .sidebar .card:nth-child(3) {
+      display: none;
+    }
+
+    .sidebar .card {
+      padding: 6px 8px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    #next {
+      height: 100px;
+      width: 100%;
+    }
+
+    /* Scale down the next block canvas rendering */
+    .sidebar .card:first-child {
+      overflow: hidden;
+    }
+
+    .sidebar .card:first-child canvas {
+      transform: scale(0.7);
+      transform-origin: top center;
+    }
+
+    #ranking.ranking li {
+      font-size: 11px;
+      padding: 4px 6px;
+    }
+
+    .store {
+      gap: 6px;
+    }
+
+    .pill {
+      padding: 8px 10px;
+      font-size: 11px;
+    }
+
+    .theme-list {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .theme-list .pill {
+      padding: 6px 8px;
+      font-size: 10px;
+    }
+
+    .controls {
+      margin-top: 12px;
+      gap: 8px;
+    }
+
+    .control-pad {
+      padding: 8px;
+      gap: 6px;
+    }
+
+    .control-pad button {
+      padding: 10px;
+      font-size: 16px;
+    }
+  }
+
+  @media (min-width: 901px) and (max-width: 1200px) {
+    .shell {
+      max-width: 100%;
+    }
+
+    .layout {
+      grid-template-columns: minmax(280px, 1.5fr) minmax(180px, 1fr);
+    }
+
+    .hud {
+      gap: 6px;
+    }
+
+    .hud-block {
+      padding: 6px 8px;
+    }
   }
 
   .modal-content {

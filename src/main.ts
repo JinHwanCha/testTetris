@@ -84,8 +84,6 @@ const BOARD_COLS = 10
 const BOARD_ROWS = 20
 const HIDDEN_ROWS = 2
 const TILE = 28
-const NEXT_CANVAS_WIDTH = TILE * 5
-const NEXT_CANVAS_HEIGHT = TILE * 6.5
 const SOFT_DROP_MULTIPLIER = 18
 const HARD_DROP_BONUS = 6
 const HEART_MAX = 3
@@ -97,6 +95,11 @@ const PRODUCT_MAP: Record<string, BillingProductId> = {
   '24h': 'heart_24h',
   '30d': 'heart_30d'
 }
+
+const RANKINGS_PER_PAGE = 10
+let currentRankingPage = 0
+let totalRankingPages = 0
+let currentRankingMode: ModeKey | 'all' = 'all'
 
 const themes: Record<ThemeKey, Theme> = {
   neon: {
@@ -357,6 +360,7 @@ app.innerHTML = `
           <button data-mode="online">온라인</button>
         </div>
         <ul id="menu-ranking" class="ranking"></ul>
+        <div class="ranking-pagination" id="ranking-pagination"></div>
       </div>
     </div>
 
@@ -547,35 +551,36 @@ app.innerHTML = `
   </div>
 `
 
-const boardCanvas = document.querySelector<HTMLCanvasElement>('#board')!
-const nextCanvas = document.querySelector<HTMLCanvasElement>('#next')!
-const ctx = boardCanvas.getContext('2d')!
-const nextCtx = nextCanvas.getContext('2d')!
-const scoreEl = document.querySelector<HTMLDivElement>('#score')!
-const levelEl = document.querySelector<HTMLDivElement>('#level')!
-const linesEl = document.querySelector<HTMLDivElement>('#lines')!
-const comboEl = document.querySelector<HTMLDivElement>('#combo')!
-const modeDisplayEl = document.querySelector<HTMLDivElement>('#mode-display')!
-const heartsEl = document.querySelector<HTMLDivElement>('#hearts')!
-const rechargeEl = document.querySelector<HTMLDivElement>('#recharge')!
-const menuHeartsEl = document.querySelector<HTMLDivElement>('#menu-hearts')!
-const menuRechargeEl = document.querySelector<HTMLDivElement>('#menu-recharge')!
-const rankingEl = document.querySelector<HTMLUListElement>('#ranking')!
-const menuRankingEl = document.querySelector<HTMLUListElement>('#menu-ranking')!
-const effectsEl = document.querySelector<HTMLDivElement>('#effects')!
-const boardOverlay = document.querySelector<HTMLDivElement>('#board-overlay')!
-const loadingLayer = document.querySelector<HTMLDivElement>('#loading')!
-const loadingBar = document.querySelector<HTMLSpanElement>('#loading-bar')!
-const loadingText = document.querySelector<HTMLDivElement>('#loading-text')!
-const themeListEl = document.querySelector<HTMLDivElement>('#theme-list')!
-const themeBtn = document.querySelector<HTMLButtonElement>('#theme-btn')!
-const storeBtn = document.querySelector<HTMLButtonElement>('#store-btn')!
-const menuStoreBtn = document.querySelector<HTMLButtonElement>('#menu-store-btn')!
-const menuThemeBtn = document.querySelector<HTMLButtonElement>('#menu-theme-btn')!
-const menuBtn = document.querySelector<HTMLButtonElement>('#menu-btn')!
-const menuScreen = document.querySelector<HTMLDivElement>('#menu-screen')!
-const gameScreen = document.querySelector<HTMLDivElement>('#game-screen')!
-const rankingTabs = document.querySelector<HTMLDivElement>('#ranking-tabs')!
+// DOM Elements - will be initialized after DOM loads
+let boardCanvas: HTMLCanvasElement
+let nextCanvas: HTMLCanvasElement
+let ctx: CanvasRenderingContext2D
+let nextCtx: CanvasRenderingContext2D
+let scoreEl: HTMLDivElement
+let levelEl: HTMLDivElement
+let linesEl: HTMLDivElement
+let comboEl: HTMLDivElement
+let modeDisplayEl: HTMLDivElement
+let heartsEl: HTMLDivElement
+let rechargeEl: HTMLDivElement
+let menuHeartsEl: HTMLDivElement
+let menuRechargeEl: HTMLDivElement
+let rankingEl: HTMLUListElement
+let menuRankingEl: HTMLUListElement
+let effectsEl: HTMLDivElement
+let boardOverlay: HTMLDivElement
+let loadingLayer: HTMLDivElement
+let loadingBar: HTMLSpanElement
+let loadingText: HTMLDivElement
+let themeListEl: HTMLDivElement
+let themeBtn: HTMLButtonElement
+let storeBtn: HTMLButtonElement
+let menuStoreBtn: HTMLButtonElement
+let menuThemeBtn: HTMLButtonElement
+let menuBtn: HTMLButtonElement
+let menuScreen: HTMLDivElement
+let gameScreen: HTMLDivElement
+let rankingTabs: HTMLDivElement
 
 const state: GameState = {
   grid: createGrid(),
@@ -609,40 +614,75 @@ let heartState: HeartState = loadHearts()
 // // 테스트: 1시간 무제한 추가
 // heartState.unlimitedUntil = Date.now() + 60 * 60 * 1000
 
-applyTheme(loadTheme())
-renderThemeList()
-void renderRanking()
-renderHearts()
-renderRecharge()
-void renderMenuRanking('all')
-bindModeCards()
-bindRankingTabs()
-updateScreenVisibility()
-ensureBillingReady().catch((e) => console.warn('Billing init failed', e))
+function initializeDOM() {
+  boardCanvas = document.querySelector<HTMLCanvasElement>('#board')!
+  nextCanvas = document.querySelector<HTMLCanvasElement>('#next')!
+  ctx = boardCanvas.getContext('2d')!
+  nextCtx = nextCanvas.getContext('2d')!
+  scoreEl = document.querySelector<HTMLDivElement>('#score')!
+  levelEl = document.querySelector<HTMLDivElement>('#level')!
+  linesEl = document.querySelector<HTMLDivElement>('#lines')!
+  comboEl = document.querySelector<HTMLDivElement>('#combo')!
+  modeDisplayEl = document.querySelector<HTMLDivElement>('#mode-display')!
+  heartsEl = document.querySelector<HTMLDivElement>('#hearts')!
+  rechargeEl = document.querySelector<HTMLDivElement>('#recharge')!
+  menuHeartsEl = document.querySelector<HTMLDivElement>('#menu-hearts')!
+  menuRechargeEl = document.querySelector<HTMLDivElement>('#menu-recharge')!
+  rankingEl = document.querySelector<HTMLUListElement>('#ranking')!
+  menuRankingEl = document.querySelector<HTMLUListElement>('#menu-ranking')!
+  effectsEl = document.querySelector<HTMLDivElement>('#effects')!
+  boardOverlay = document.querySelector<HTMLDivElement>('#board-overlay')!
+  loadingLayer = document.querySelector<HTMLDivElement>('#loading')!
+  loadingBar = document.querySelector<HTMLSpanElement>('#loading-bar')!
+  loadingText = document.querySelector<HTMLDivElement>('#loading-text')!
+  themeListEl = document.querySelector<HTMLDivElement>('#theme-list')!
+  themeBtn = document.querySelector<HTMLButtonElement>('#theme-btn')!
+  storeBtn = document.querySelector<HTMLButtonElement>('#store-btn')!
+  menuStoreBtn = document.querySelector<HTMLButtonElement>('#menu-store-btn')!
+  menuThemeBtn = document.querySelector<HTMLButtonElement>('#menu-theme-btn')!
+  menuBtn = document.querySelector<HTMLButtonElement>('#menu-btn')!
+  menuScreen = document.querySelector<HTMLDivElement>('#menu-screen')!
+  gameScreen = document.querySelector<HTMLDivElement>('#game-screen')!
+  rankingTabs = document.querySelector<HTMLDivElement>('#ranking-tabs')!
 
-const resizeObserver = new ResizeObserver(() => {
-  boardOverlay.style.width = `${boardCanvas.clientWidth}px`
-  boardOverlay.style.height = `${boardCanvas.clientHeight}px`
-})
-resizeObserver.observe(boardCanvas)
-
-// Resize next canvas to match container
-const nextResizeObserver = new ResizeObserver(() => {
-  const rect = nextCanvas.getBoundingClientRect()
-  nextCanvas.width = rect.width
-  nextCanvas.height = rect.height
-  drawNext()
-})
-nextResizeObserver.observe(nextCanvas)
-
-simulateLoading().then(() => {
-  state.running = 'ready'
-  state.screen = 'menu'
+  applyTheme(loadTheme())
+  renderThemeList()
+  void renderRanking()
+  renderHearts()
+  renderRecharge()
+  void renderMenuRanking('all')
+  bindModeCards()
+  bindRankingTabs()
   updateScreenVisibility()
-})
+  ensureBillingReady().catch((e) => console.warn('Billing init failed', e))
 
-requestAnimationFrame(loop)
-setInterval(tickHearts, 1000)
+  const resizeObserver = new ResizeObserver(() => {
+    boardOverlay.style.width = `${boardCanvas.clientWidth}px`
+    boardOverlay.style.height = `${boardCanvas.clientHeight}px`
+  })
+  resizeObserver.observe(boardCanvas)
+
+  // Resize next canvas to match container
+  const nextResizeObserver = new ResizeObserver(() => {
+    const rect = nextCanvas.getBoundingClientRect()
+    nextCanvas.width = rect.width
+    nextCanvas.height = rect.height
+    drawNext()
+  })
+  nextResizeObserver.observe(nextCanvas)
+
+  // Bind all event listeners
+  bindEventListeners()
+
+  simulateLoading().then(() => {
+    state.running = 'ready'
+    state.screen = 'menu'
+    updateScreenVisibility()
+  })
+
+  requestAnimationFrame(loop)
+  setInterval(tickHearts, 1000)
+}
 
 // ---------- UI building ----------
 
@@ -689,14 +729,15 @@ function bindRankingTabs() {
       rankingTabs.querySelectorAll('button').forEach((b) => b.classList.remove('active'))
       btn.classList.add('active')
       const mode = btn.dataset.mode as ModeKey | 'all'
-      renderMenuRanking(mode)
+      currentRankingPage = 0 // Reset to first page when changing tabs
+      void renderMenuRanking(mode, 0)
     })
   })
 }
 
 async function renderRanking() {
   rankingEl.innerHTML = '<li style="color:var(--muted);text-align:center">불러오는 중...</li>'
-  const rankings = await fetchRankings(state.mode, 5)
+  const rankings = await fetchRankings(state.mode, 3)
   rankingEl.innerHTML =
     rankings.length > 0
       ? rankings
@@ -705,21 +746,69 @@ async function renderRanking() {
               `<li><span>${i + 1}위</span><span>${r.name}</span><span>${abbreviateScore(r.score)}</span></li>`
           )
           .join('')
-      : '<li style="text-align:center;color:var(--muted)">아직 기록이 없어요</li>'
+      : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">아직 기록이 없어요</li>'
 }
 
-async function renderMenuRanking(mode: ModeKey | 'all') {
+async function renderMenuRanking(mode: ModeKey | 'all', page: number = 0) {
+  currentRankingMode = mode
+  currentRankingPage = page
+  
   menuRankingEl.innerHTML = '<li style="color:var(--muted);text-align:center">불러오는 중...</li>'
-  const rankings = await fetchRankings(mode, 10)
+  
+  // Fetch up to 100 rankings total
+  const allRankings = await fetchRankings(mode, 100)
+  totalRankingPages = Math.ceil(allRankings.length / RANKINGS_PER_PAGE)
+  
+  // Get current page rankings
+  const startIdx = page * RANKINGS_PER_PAGE
+  const endIdx = startIdx + RANKINGS_PER_PAGE
+  const rankings = allRankings.slice(startIdx, endIdx)
+  
   menuRankingEl.innerHTML =
     rankings.length > 0
       ? rankings
           .map(
             (r, i) =>
-              `<li><span>${i + 1}위</span><span>${r.country || '🌐'}</span><span>${r.name}</span><span>${getModeLabel(r.mode)}</span><span>${abbreviateScore(r.score)}</span></li>`
+              `<li><span>${startIdx + i + 1}위</span><span>${r.country || '🌐'}</span><span>${r.name}</span><span>${getModeLabel(r.mode)}</span><span>${abbreviateScore(r.score)}</span></li>`
           )
           .join('')
       : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">아직 기록이 없어요</li>'
+  
+  renderRankingPagination()
+}
+
+function renderRankingPagination() {
+  const paginationEl = document.querySelector('#ranking-pagination')
+  if (!paginationEl) return
+  
+  if (totalRankingPages <= 1) {
+    paginationEl.innerHTML = ''
+    return
+  }
+  
+  const prevDisabled = currentRankingPage === 0
+  const nextDisabled = currentRankingPage >= totalRankingPages - 1
+  
+  paginationEl.innerHTML = `
+    <button id="ranking-prev" ${prevDisabled ? 'disabled' : ''}>◀</button>
+    <span>${currentRankingPage + 1} / ${totalRankingPages}</span>
+    <button id="ranking-next" ${nextDisabled ? 'disabled' : ''}>▶</button>
+  `
+  
+  const prevBtn = document.querySelector<HTMLButtonElement>('#ranking-prev')
+  const nextBtn = document.querySelector<HTMLButtonElement>('#ranking-next')
+  
+  if (prevBtn && !prevDisabled) {
+    prevBtn.addEventListener('click', () => {
+      void renderMenuRanking(currentRankingMode, currentRankingPage - 1)
+    })
+  }
+  
+  if (nextBtn && !nextDisabled) {
+    nextBtn.addEventListener('click', () => {
+      void renderMenuRanking(currentRankingMode, currentRankingPage + 1)
+    })
+  }
 }
 
 function renderThemeList() {
@@ -1004,15 +1093,25 @@ function collides(piece: FallingPiece, pos: Vec2, rotation: number) {
 function lockPiece() {
   if (!state.active) return
   const shape = currentShape()
+  
+  // Check if piece is above board (game over)
+  for (let y = 0; y < shape.length; y++) {
+    for (let x = 0; x < shape[y].length; x++) {
+      if (!shape[y][x]) continue
+      const gy = state.active.position.y + y
+      if (gy < 0) {
+        gameOver()
+        return
+      }
+    }
+  }
+  
+  // Lock piece to grid
   shape.forEach((row, y) => {
     row.forEach((val, x) => {
       if (!val) return
       const gx = state.active!.position.x + x
       const gy = state.active!.position.y + y
-      if (gy < 0) {
-        gameOver()
-        return
-      }
       state.grid[gy][gx] = tetrominoes[state.active!.key].color
     })
   })
@@ -1096,6 +1195,8 @@ function makeNext() {
   }
   if (collides(piece, piece.position, piece.rotation)) {
     gameOver()
+    state.active = undefined
+    return piece
   }
   return piece
 }
@@ -1220,38 +1321,142 @@ function renderRecharge() {
 
 // ---------- Input ----------
 
-document.addEventListener('keydown', (e) => {
-  if (state.running !== 'playing') return
-  switch (e.key) {
-    case 'ArrowLeft':
-      move({ x: -1, y: 0 })
-      break
-    case 'ArrowRight':
-      move({ x: 1, y: 0 })
-      break
-    case 'ArrowDown':
-      if (move({ x: 0, y: 1 })) state.score += SOFT_DROP_MULTIPLIER
-      break
-    case 'ArrowUp':
-    case 'x':
-    case 'X':
-      rotate(1)
-      break
-    case 'z':
-    case 'Z':
-      rotate(-1)
-      break
-    case ' ': {
-      e.preventDefault()
-      hardDrop()
-      break
+function bindEventListeners() {
+  document.addEventListener('keydown', (e) => {
+    if (state.running !== 'playing') return
+    switch (e.key) {
+      case 'ArrowLeft':
+        move({ x: -1, y: 0 })
+        break
+      case 'ArrowRight':
+        move({ x: 1, y: 0 })
+        break
+      case 'ArrowDown':
+        if (move({ x: 0, y: 1 })) state.score += SOFT_DROP_MULTIPLIER
+        break
+      case 'ArrowUp':
+      case 'x':
+      case 'X':
+        rotate(1)
+        break
+      case 'z':
+      case 'Z':
+        rotate(-1)
+        break
+      case ' ': {
+        e.preventDefault()
+        hardDrop()
+        break
+      }
+      case 'c':
+      case 'C':
+        hold()
+        break
     }
-    case 'c':
-    case 'C':
-      hold()
-      break
-  }
-})
+  })
+
+  bindPad('#pad-left')
+  bindPad('#pad-right')
+
+  menuBtn.addEventListener('click', () => {
+    if (state.running === 'playing') {
+      openPauseModal()
+    } else if (state.running === 'paused') {
+      resumeGame()
+    } else {
+      returnToMenu()
+    }
+  })
+
+  storeBtn.addEventListener('click', () => {
+    if (state.running === 'playing') {
+      pauseGame()
+      showModal('store-modal')
+    }
+  })
+
+  menuStoreBtn.addEventListener('click', () => {
+    if (state.running === 'playing') pauseGame()
+    showModal('store-modal')
+  })
+
+  // Modal close buttons
+  document.querySelectorAll<HTMLButtonElement>('[data-modal-close]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const modalId = btn.dataset.modalClose!
+      hideModal(modalId)
+      if (modalId === 'pause-modal' || modalId === 'store-modal') {
+        resumeGame()
+      }
+    })
+  })
+
+  // Store modal product buttons
+  document.querySelectorAll<HTMLButtonElement>('.modal-product-pill').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const pack = btn.dataset.pack!
+      handleStorePurchase(pack)
+    })
+  })
+
+  // Pause modal buttons
+  document.querySelector<HTMLButtonElement>('#pause-continue-btn')?.addEventListener('click', () => {
+    resumeGame()
+  })
+
+  document.querySelector<HTMLButtonElement>('#pause-quit-btn')?.addEventListener('click', () => {
+    hideModal('pause-modal')
+    returnToMenu()
+  })
+
+  // Revive modal buttons
+  document.querySelector<HTMLButtonElement>('#revive-continue-btn')?.addEventListener('click', () => {
+    if (!hasHeart()) {
+      alert('하트가 없어요!')
+      return
+    }
+    consumeHeart()
+    renderHearts()
+    renderRecharge()
+    
+    // Clear the board
+    state.grid = createGrid()
+    
+    // Spawn a new piece
+    state.active = spawnPiece()
+    
+    state.reviveUsed = true
+    state.running = 'playing'
+    hideModal('revive-modal')
+    boardOverlay.innerText = ''
+  })
+
+  document.querySelector<HTMLButtonElement>('#revive-restart-btn')?.addEventListener('click', () => {
+    hideModal('revive-modal')
+    const name = prompt('이 기록을 랭킹에 등록할 이름을 입력하세요:', '익명')
+    if (name && name.trim()) {
+      const entry: RankingEntry = {
+        name: name.trim().slice(0, 12),
+        score: state.score,
+        mode: state.mode,
+        date: Date.now()
+      }
+      void submitRanking(entry).then(() => void renderMenuRanking('all'))
+    }
+    returnToMenu()
+  })
+
+  // Bind sidebar store buttons
+  document.querySelectorAll<HTMLButtonElement>('.store .pill').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const pack = btn.dataset.pack!
+      handleStorePurchase(pack)
+    })
+  })
+
+  themeBtn.addEventListener('click', cycleTheme)
+  menuThemeBtn.addEventListener('click', cycleTheme)
+}
 
 function bindPad(id: string) {
   const pad = document.querySelector<HTMLDivElement>(id)!
@@ -1270,9 +1475,6 @@ function bindPad(id: string) {
     })
   })
 }
-
-bindPad('#pad-left')
-bindPad('#pad-right')
 
 // ---------- Hold ----------
 
@@ -1303,29 +1505,6 @@ function returnToMenu() {
   boardOverlay.innerText = ''
 }
 
-menuBtn.addEventListener('click', () => {
-  if (state.running === 'playing') {
-    openPauseModal()
-  } else if (state.running === 'paused') {
-    resumeGame()
-  } else {
-    returnToMenu()
-  }
-})
-
-storeBtn.addEventListener('click', () => {
-  if (state.running === 'playing') {
-    pauseGame()
-    showModal('store-modal')
-  }
-})
-
-menuStoreBtn.addEventListener('click', () => {
-  // 메뉴에서도 게임이 진행 중일 수 있으므로 잠시 일시정지 상태로 전환
-  if (state.running === 'playing') pauseGame()
-  showModal('store-modal')
-})
-
 function pauseGame(message = '') {
   if (state.running !== 'playing') return
   state.running = 'paused'
@@ -1343,78 +1522,6 @@ function resumeGame() {
   hideModal('pause-modal')
   boardOverlay.innerText = ''
 }
-
-// Modal close buttons
-document.querySelectorAll<HTMLButtonElement>('[data-modal-close]').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const modalId = btn.dataset.modalClose!
-    hideModal(modalId)
-    if (modalId === 'pause-modal' || modalId === 'store-modal') {
-      resumeGame()
-    }
-  })
-})
-
-// Modal backdrop close
-document.querySelectorAll<HTMLDivElement>('.modal-backdrop').forEach((backdrop) => {
-  backdrop.addEventListener('click', () => {
-    const modal = backdrop.closest('.modal')
-    if (modal) {
-      hideModal(modal.id)
-      if (modal.id === 'pause-modal' || modal.id === 'store-modal') {
-        resumeGame()
-      }
-    }
-  })
-})
-
-// Store modal product buttons
-document.querySelectorAll<HTMLButtonElement>('.modal-product-pill').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const pack = btn.dataset.pack!
-    handleStorePurchase(pack)
-  })
-})
-
-// Pause modal buttons
-document.querySelector<HTMLButtonElement>('#pause-continue-btn')?.addEventListener('click', () => {
-  resumeGame()
-})
-
-document.querySelector<HTMLButtonElement>('#pause-quit-btn')?.addEventListener('click', () => {
-  hideModal('pause-modal')
-  returnToMenu()
-})
-
-// Revive modal buttons
-document.querySelector<HTMLButtonElement>('#revive-continue-btn')?.addEventListener('click', () => {
-  if (!hasHeart()) {
-    alert('하트가 없어요!')
-    return
-  }
-  consumeHeart()
-  renderHearts()
-  renderRecharge()
-  state.reviveUsed = true
-  state.running = 'playing'
-  hideModal('revive-modal')
-  boardOverlay.innerText = ''
-})
-
-document.querySelector<HTMLButtonElement>('#revive-restart-btn')?.addEventListener('click', () => {
-  hideModal('revive-modal')
-  const name = prompt('이 기록을 랭킹에 등록할 이름을 입력하세요:', '익명')
-  if (name && name.trim()) {
-    const entry: RankingEntry = {
-      name: name.trim().slice(0, 12),
-      score: state.score,
-      mode: state.mode,
-      date: Date.now()
-    }
-    void submitRanking(entry).then(() => void renderMenuRanking('all'))
-  }
-  returnToMenu()
-})
 
 // Purchase modal - after purchase, try to start the game again
 function handleStorePurchase(pack: string) {
@@ -1440,14 +1547,6 @@ function handleStorePurchase(pack: string) {
     })
 }
 
-// Bind sidebar store buttons
-document.querySelectorAll<HTMLButtonElement>('.store .pill').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const pack = btn.dataset.pack!
-    handleStorePurchase(pack)
-  })
-})
-
 function cycleTheme() {
   const keys = Object.keys(themes) as ThemeKey[]
   const current = loadTheme()
@@ -1456,9 +1555,6 @@ function cycleTheme() {
   applyTheme(next)
   saveTheme(next)
 }
-
-themeBtn.addEventListener('click', cycleTheme)
-menuThemeBtn.addEventListener('click', cycleTheme)
 
 function applyPurchase(productId: BillingProductId) {
   const now = Date.now()
@@ -1568,6 +1664,9 @@ function loadTheme(): ThemeKey {
 
 async function simulateLoading() {
   state.running = 'loading'
+  // Prevent scrolling during loading
+  document.body.style.overflow = 'hidden'
+  
   let progress = 0
   return new Promise<void>((resolve) => {
     const timer = setInterval(() => {
@@ -1577,6 +1676,8 @@ async function simulateLoading() {
       if (progress >= 100) {
         clearInterval(timer)
         loadingLayer.classList.add('hidden')
+        // Re-enable scrolling after loading
+        document.body.style.overflow = ''
         resolve()
       }
     }, 160)
@@ -1674,3 +1775,10 @@ function getUserCountryFlag(): string {
 
 // expose for debug
 ;(window as any).tetoris = { state, start, hold, hardDrop, formatDateTime, loadRankings, addRanking }
+
+// Initialize after DOM is fully loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeDOM)
+} else {
+  initializeDOM()
+}
