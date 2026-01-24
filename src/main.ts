@@ -313,32 +313,32 @@ app.innerHTML = `
       <div class="loading-text" id="loading-text">로딩 준비 중...</div>
     </div>
 
-    <div class="menu-screen" id="menu-screen">
+    <div class="menu-screen" id="menu-screen" role="main">
       <div class="menu-header">
-        <div class="menu-logo">테토리스</div>
+        <div class="menu-logo" role="heading" aria-level="1">테토리스</div>
         <p class="menu-tagline">테스토스테론이 넘치는 시원한 테트리스</p>
       </div>
-      <div class="mode-grid">
-        <div class="mode-card" data-mode="classic">
-          <div class="mode-icon">📦</div>
+      <div class="mode-grid" role="group" aria-label="게임 모드 선택">
+        <button class="mode-card" data-mode="classic" aria-label="클래식 모드: 안정된 속도로 즐기는 정통 테트리스">
+          <div class="mode-icon" aria-hidden="true">📦</div>
           <div class="mode-title">클래식</div>
           <div class="mode-description">안정된 속도로 즐기는 정통 테트리스</div>
-        </div>
-        <div class="mode-card" data-mode="hard">
-          <div class="mode-icon">🔥</div>
+        </button>
+        <button class="mode-card" data-mode="hard" aria-label="하드 모드: 점점 빨라지고 가비지가 올라오는 극한 도전">
+          <div class="mode-icon" aria-hidden="true">🔥</div>
           <div class="mode-title">하드</div>
           <div class="mode-description">점점 빨라지고 가비지가 올라오는 극한 도전</div>
-        </div>
-        <div class="mode-card" data-mode="gravity">
-          <div class="mode-icon">🌊</div>
+        </button>
+        <button class="mode-card" data-mode="gravity" aria-label="그래비티 모드: 라인 제거 시 위 3줄이 중력으로 낙하">
+          <div class="mode-icon" aria-hidden="true">🌊</div>
           <div class="mode-title">그래비티</div>
           <div class="mode-description">라인 제거 시 위 3줄이 중력으로 낙하</div>
-        </div>
-        <div class="mode-card" data-mode="online">
-          <div class="mode-icon">⚡</div>
+        </button>
+        <button class="mode-card" data-mode="online" aria-label="온라인 모드: 랭크 매치 느낌의 긴장감 넘치는 대결">
+          <div class="mode-icon" aria-hidden="true">⚡</div>
           <div class="mode-title">온라인</div>
           <div class="mode-description">랭크 매치 느낌의 긴장감 넘치는 대결</div>
-        </div>
+        </button>
       </div>
       <div class="menu-bottom">
         <div class="menu-hearts">
@@ -351,8 +351,8 @@ app.innerHTML = `
         </div>
       </div>
       <div class="menu-ranking">
-        <h3>🏆 명예의 전당</h3>
-        <div class="ranking-tabs" id="ranking-tabs">
+        <h3><span aria-hidden="true">🏆</span> 명예의 전당</h3>
+        <div class="ranking-tabs" id="ranking-tabs" role="tablist" aria-label="랭킹 필터">
           <button data-mode="all" class="active">전체</button>
           <button data-mode="classic">클래식</button>
           <button data-mode="hard">하드</button>
@@ -364,7 +364,7 @@ app.innerHTML = `
       </div>
     </div>
 
-    <div class="game-screen" id="game-screen">
+    <div class="game-screen" id="game-screen" role="main">
       <header class="topbar">
         <div class="brand">
           <div class="wordmark">테토리스</div>
@@ -403,7 +403,7 @@ app.innerHTML = `
               <div class="value" id="combo">-</div>
             </div>
           </div>
-          <canvas id="board" width="${BOARD_COLS * TILE}" height="${(BOARD_ROWS + HIDDEN_ROWS) * TILE}"></canvas>
+          <canvas id="board" width="${BOARD_COLS * TILE}" height="${(BOARD_ROWS + HIDDEN_ROWS) * TILE}" role="img" aria-label="테트리스 게임 보드"></canvas>
           <div class="board-overlay" id="board-overlay"></div>
           <div class="floating" id="effects"></div>
         </section>
@@ -411,7 +411,7 @@ app.innerHTML = `
         <aside class="sidebar">
           <div class="card">
             <div class="card-title">다음 블록</div>
-            <canvas id="next"></canvas>
+            <canvas id="next" role="img" aria-label="다음에 나올 블록 미리보기"></canvas>
           </div>
           <div class="card">
             <div class="card-title">이번 게임 랭킹</div>
@@ -449,12 +449,12 @@ app.innerHTML = `
     </div>
 
     <!-- Store Modal -->
-    <div id="store-modal" class="modal">
+    <div id="store-modal" class="modal" role="dialog" aria-labelledby="store-modal-title" aria-modal="true">
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>하트 상점</h2>
-          <button class="modal-close" data-modal-close="store-modal">&times;</button>
+          <h2 id="store-modal-title">하트 상점</h2>
+          <button class="modal-close" data-modal-close="store-modal" aria-label="닫기">&times;</button>
         </div>
         <div class="modal-products">
           <button class="modal-product-pill" data-pack="1">
@@ -482,12 +482,12 @@ app.innerHTML = `
     </div>
 
     <!-- Purchase Modal (when hearts empty) -->
-    <div id="purchase-modal" class="modal">
+    <div id="purchase-modal" class="modal" role="dialog" aria-labelledby="purchase-modal-title" aria-modal="true">
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>하트가 없어요!</h2>
-          <button class="modal-close" data-modal-close="purchase-modal">&times;</button>
+          <h2 id="purchase-modal-title">하트가 없어요!</h2>
+          <button class="modal-close" data-modal-close="purchase-modal" aria-label="닫기">&times;</button>
         </div>
         <p class="modal-message">지금 구매하고 게임을 계속하세요!</p>
         <div class="modal-products">
@@ -516,11 +516,11 @@ app.innerHTML = `
     </div>
 
     <!-- Revive Modal (game over) -->
-    <div id="revive-modal" class="modal">
+    <div id="revive-modal" class="modal" role="dialog" aria-labelledby="revive-modal-title" aria-modal="true">
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>게임 오버!</h2>
+          <h2 id="revive-modal-title">게임 오버!</h2>
         </div>
         <p class="modal-message"><span id="revive-score">0</span>점을 얻었습니다!</p>
         <div class="modal-buttons">
@@ -534,12 +534,12 @@ app.innerHTML = `
     </div>
 
     <!-- Pause Modal -->
-    <div id="pause-modal" class="modal">
+    <div id="pause-modal" class="modal" role="dialog" aria-labelledby="pause-modal-title" aria-modal="true">
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>일시정지</h2>
-          <button class="modal-close" data-modal-close="pause-modal">&times;</button>
+          <h2 id="pause-modal-title">일시정지</h2>
+          <button class="modal-close" data-modal-close="pause-modal" aria-label="닫기">&times;</button>
         </div>
         <p class="modal-message">게임이 일시정지되었습니다.</p>
         <div class="modal-buttons">
@@ -654,7 +654,7 @@ function initializeDOM() {
   bindModeCards()
   bindRankingTabs()
   updateScreenVisibility()
-  ensureBillingReady().catch((e) => console.warn('Billing init failed', e))
+  ensureBillingReady().catch(() => {})
 
   const resizeObserver = new ResizeObserver(() => {
     boardOverlay.style.width = `${boardCanvas.clientWidth}px`
@@ -715,7 +715,7 @@ function hideModal(modalId: string) {
 }
 
 function bindModeCards() {
-  document.querySelectorAll<HTMLDivElement>('.mode-card').forEach((card) => {
+  document.querySelectorAll<HTMLButtonElement>('.mode-card').forEach((card) => {
     card.addEventListener('click', () => {
       const mode = card.dataset.mode as ModeKey
       start(mode)
@@ -1253,7 +1253,7 @@ function loadHearts(): HeartState {
       const parsed = JSON.parse(saved) as HeartState
       return parsed
     } catch (e) {
-      console.error(e)
+      return { hearts: HEART_MAX, rechargeQueue: [] }
     }
   }
   return { hearts: HEART_MAX, rechargeQueue: [] }
@@ -1391,8 +1391,8 @@ function bindEventListeners() {
     })
   })
 
-  // Store modal product buttons
-  document.querySelectorAll<HTMLButtonElement>('.modal-product-pill').forEach((btn) => {
+  // Store modal product buttons (handles both modal and sidebar)
+  document.querySelectorAll<HTMLButtonElement>('[data-pack]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const pack = btn.dataset.pack!
       handleStorePurchase(pack)
@@ -1444,14 +1444,6 @@ function bindEventListeners() {
       void submitRanking(entry).then(() => void renderMenuRanking('all'))
     }
     returnToMenu()
-  })
-
-  // Bind sidebar store buttons
-  document.querySelectorAll<HTMLButtonElement>('.store .pill').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const pack = btn.dataset.pack!
-      handleStorePurchase(pack)
-    })
   })
 
   themeBtn.addEventListener('click', cycleTheme)
@@ -1533,13 +1525,11 @@ function handleStorePurchase(pack: string) {
       hideModal('store-modal')
       hideModal('purchase-modal')
       if (state.running === 'paused') resumeGame()
-      // If we were in purchase modal flow, retry starting the game
       if (purchaseModalMode && state.screen === 'menu') {
         start(purchaseModalMode)
       }
     })
-    .catch((err) => {
-      console.warn('Billing purchase failed', err)
+    .catch(() => {
       alert('결제에 실패했습니다. 다시 시도해주세요.')
       hideModal('store-modal')
       hideModal('purchase-modal')
@@ -1690,7 +1680,7 @@ function loadRankings(): RankingEntry[] {
     try {
       return JSON.parse(saved) as RankingEntry[]
     } catch (e) {
-      console.error(e)
+      return []
     }
   }
   return []
@@ -1722,7 +1712,6 @@ async function fetchRankings(mode: ModeKey | 'all', limit: number): Promise<Rank
 
   const { data, error } = await query
   if (error || !data) {
-    console.warn('랭킹 불러오기 실패, 로컬로 대체', error)
     return localFiltered.slice(0, limit)
   }
   return data.map((row) => ({
@@ -1745,7 +1734,7 @@ async function submitRanking(entry: RankingEntry) {
     country: entry.country || '🌐',
     created_at: new Date(entry.date).toISOString()
   })
-  if (error) console.warn('랭킹 업로드 실패(로컬 저장됨)', error)
+  if (error) return
 }
 
 function getModeLabel(mode: ModeKey): string {
@@ -1760,16 +1749,12 @@ function getModeLabel(mode: ModeKey): string {
 
 function getUserCountryFlag(): string {
   try {
-    // navigator.language를 사용하여 국가 코드 추출 (ex: 'ko-KR', 'en-US')
     const lang = navigator.language || 'en-US'
     const countryCode = lang.split('-')[1] || lang.split('-')[0].toUpperCase()
-    
-    // 국가 코드를 국기 이모지로 변환 (Unicode Regional Indicator)
     const codePoints = countryCode.split('').map(char => 127397 + char.charCodeAt(0))
     return String.fromCodePoint(...codePoints)
   } catch (e) {
-    console.warn('국기 감지 실패', e)
-    return '🌐' // 기본값: 지구본 이모지
+    return '🌐'
   }
 }
 

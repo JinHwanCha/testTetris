@@ -26,7 +26,6 @@ export interface BillingPlugin {
 const Billing = registerPlugin<BillingPlugin>('Billing', {
   web: () => ({
     async initialize() {
-      console.warn('[Billing] Web fallback; real billing runs only on Android build')
       return { ok: false }
     },
     async getProducts() {
@@ -57,7 +56,7 @@ export async function ensureBillingReady() {
     await Billing.initialize()
     initialized = true
   } catch (err) {
-    console.warn('[Billing] initialize failed:', err)
+    // Silently fail on web platform
   }
 }
 
