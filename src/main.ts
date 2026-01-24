@@ -21,6 +21,7 @@ interface RankingEntry {
   score: number
   mode: ModeKey
   date: number
+  country?: string
 }
 
 interface PieceShape {
@@ -714,7 +715,7 @@ async function renderMenuRanking(mode: ModeKey | 'all') {
       ? rankings
           .map(
             (r, i) =>
-              `<li><span>${i + 1}위</span><span>${r.name}</span><span>${getModeLabel(r.mode)}</span><span>${abbreviateScore(r.score)}</span></li>`
+              `<li><span>${i + 1}위</span><span>${r.country || '🌐'}</span><span>${r.name}</span><span>${getModeLabel(r.mode)}</span><span>${abbreviateScore(r.score)}</span></li>`
           )
           .join('')
       : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">아직 기록이 없어요</li>'
@@ -776,6 +777,7 @@ function start(mode: ModeKey) {
   state.screen = 'game'
   boardOverlay.innerText = ''
   updateScreenVisibility()
+  void renderRanking()
 }
 
 function loop(timestamp: number) {
@@ -1131,7 +1133,8 @@ function gameOver() {
         name: name.trim().slice(0, 12),
         score: state.score,
         mode: state.mode,
-        date: Date.now()
+        date: Date.now(),
+        country: getUserCountryFlag()
       }
       void submitRanking(entry).then(() => void renderMenuRanking('all'))
     }
@@ -1624,7 +1627,8 @@ async function fetchRankings(mode: ModeKey | 'all', limit: number): Promise<Rank
     name: row.name ?? '무명',
     score: row.score ?? 0,
     mode: (row.mode as ModeKey) ?? 'classic',
-    date: row.created_at ? Date.parse(row.created_at as string) : Date.now()
+    date: row.created_at ? Date.parse(row.created_at as string) : Date.now(),
+    country: (row as any).country ?? '🌐'
   }))
 }
 
@@ -1636,6 +1640,7 @@ async function submitRanking(entry: RankingEntry) {
     name: entry.name,
     score: entry.score,
     mode: entry.mode,
+    country: entry.country || '🌐',
     created_at: new Date(entry.date).toISOString()
   })
   if (error) console.warn('랭킹 업로드 실패(로컬 저장됨)', error)
@@ -1649,6 +1654,21 @@ function getModeLabel(mode: ModeKey): string {
     online: '온라인'
   }
   return labels[mode]
+}
+
+function getUserCountryFlag(): string {
+  try {
+    // navigator.language를 사용하여 국가 코드 추출 (ex: 'ko-KR', 'en-US')
+    const lang = navigator.language || 'en-US'
+    const countryCode = lang.split('-')[1] || lang.split('-')[0].toUpperCase()
+    
+    // 국가 코드를 국기 이모지로 변환 (Unicode Regional Indicator)
+    const codePoints = countryCode.split('').map(char => 127397 + char.charCodeAt(0))
+    return String.fromCodePoint(...codePoints)
+  } catch (e) {
+    console.warn('국기 감지 실패', e)
+    return '🌐' // 기본값: 지구본 이모지
+  }
 }
 
 // expose for debug
