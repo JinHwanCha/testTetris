@@ -2,6 +2,17 @@ import './style.css'
 import { ensureBillingReady, purchaseProduct } from './billing'
 import type { BillingProductId } from './billing'
 import { getSupabase } from './supabaseClient'
+import {
+  initAuth,
+  getCurrentUser,
+  isAuthenticated,
+  signInWithGoogle,
+  signUpWithEmail,
+  signInWithEmail,
+  signOut,
+  onAuthStateChange,
+  type AuthUser
+} from './auth'
 
 type Grid = (string | 0)[][]
 type Vec2 = { x: number; y: number }
@@ -103,7 +114,7 @@ let currentRankingMode: ModeKey | 'all' = 'all'
 
 const themes: Record<ThemeKey, Theme> = {
   neon: {
-    name: '네온 팝',
+    name: 'Neon Pop',
     vars: {
       '--bg': '#05060d',
       '--panel': '#0f1628',
@@ -117,7 +128,7 @@ const themes: Record<ThemeKey, Theme> = {
     }
   },
   midnight: {
-    name: '미드나이트',
+    name: 'Midnight',
     vars: {
       '--bg': '#0b0c13',
       '--panel': '#151827',
@@ -131,7 +142,7 @@ const themes: Record<ThemeKey, Theme> = {
     }
   },
   sand: {
-    name: '샌드',
+    name: 'Sand',
     vars: {
       '--bg': '#f4ede1',
       '--panel': '#fff8ed',
@@ -145,7 +156,7 @@ const themes: Record<ThemeKey, Theme> = {
     }
   },
   mint: {
-    name: '민트',
+    name: 'Mint',
     vars: {
       '--bg': '#0f1d1a',
       '--panel': '#142723',
@@ -302,42 +313,42 @@ const tetrominoes: Record<PieceKey, PieceShape> = {
 }
 
 const app = document.querySelector<HTMLDivElement>('#app')
-if (!app) throw new Error('앱 루트를 찾지 못했습니다.')
+if (!app) throw new Error('App root not found.')
 
 app.innerHTML = `
   <div class="shell">
     <div class="loading" id="loading">
-      <div class="loading-logo">테토리스</div>
-      <p>테스토스테론이 넘치는 시원한 테트리스</p>
+      <div class="loading-logo">Drop the Cube</div>
+      <p>Exciting cube-dropping action - Drop the Cube</p>
       <div class="loading-bar"><span id="loading-bar"></span></div>
-      <div class="loading-text" id="loading-text">로딩 준비 중...</div>
+      <div class="loading-text" id="loading-text">Preparing to load...</div>
     </div>
 
     <div class="menu-screen" id="menu-screen" role="main">
       <div class="menu-header">
-        <div class="menu-logo" role="heading" aria-level="1">테토리스</div>
-        <p class="menu-tagline">테스토스테론이 넘치는 시원한 테트리스</p>
+        <div class="menu-logo" role="heading" aria-level="1">Drop the Cube</div>
+        <p class="menu-tagline">Exciting cube-dropping action - Drop the Cube</p>
       </div>
-      <div class="mode-grid" role="group" aria-label="게임 모드 선택">
-        <button class="mode-card" data-mode="classic" aria-label="클래식 모드: 안정된 속도로 즐기는 정통 테트리스">
+      <div class="mode-grid" role="group" aria-label="Select game mode">
+        <button class="mode-card" data-mode="classic" aria-label="Classic Mode: Enjoy the original Drop the Cube at a steady speed">
           <div class="mode-icon" aria-hidden="true">📦</div>
-          <div class="mode-title">클래식</div>
-          <div class="mode-description">안정된 속도로 즐기는 정통 테트리스</div>
+          <div class="mode-title">Classic</div>
+          <div class="mode-description">Enjoy the original Drop the Cube at a steady speed</div>
         </button>
-        <button class="mode-card" data-mode="hard" aria-label="하드 모드: 점점 빨라지고 가비지가 올라오는 극한 도전">
+        <button class="mode-card" data-mode="hard" aria-label="Hard Mode: Increasing speed with rising garbage for extreme challenge">
           <div class="mode-icon" aria-hidden="true">🔥</div>
-          <div class="mode-title">하드</div>
-          <div class="mode-description">점점 빨라지고 가비지가 올라오는 극한 도전</div>
+          <div class="mode-title">Hard</div>
+          <div class="mode-description">Increasing speed with rising garbage for extreme challenge</div>
         </button>
-        <button class="mode-card" data-mode="gravity" aria-label="그래비티 모드: 라인 제거 시 위 3줄이 중력으로 낙하">
+        <button class="mode-card" data-mode="gravity" aria-label="Gravity Mode: Top 3 rows fall when lines are cleared">
           <div class="mode-icon" aria-hidden="true">🌊</div>
-          <div class="mode-title">그래비티</div>
-          <div class="mode-description">라인 제거 시 위 3줄이 중력으로 낙하</div>
+          <div class="mode-title">Gravity</div>
+          <div class="mode-description">Top 3 rows fall when lines are cleared</div>
         </button>
-        <button class="mode-card" data-mode="online" aria-label="온라인 모드: 랭크 매치 느낌의 긴장감 넘치는 대결">
+        <button class="mode-card" data-mode="online" aria-label="Online Mode: Intense ranked match experience">
           <div class="mode-icon" aria-hidden="true">⚡</div>
-          <div class="mode-title">온라인</div>
-          <div class="mode-description">랭크 매치 느낌의 긴장감 넘치는 대결</div>
+          <div class="mode-title">Online</div>
+          <div class="mode-description">Intense ranked match experience</div>
         </button>
       </div>
       <div class="menu-bottom">
@@ -346,18 +357,18 @@ app.innerHTML = `
           <div class="recharge" id="menu-recharge"></div>
         </div>
         <div class="menu-buttons">
-          <button class="ghost" id="menu-store-btn">하트 상점</button>
-          <button class="ghost" id="menu-theme-btn">테마 변경</button>
+          <button class="ghost" id="menu-store-btn">Heart Store</button>
+          <button class="ghost" id="menu-theme-btn">Change Theme</button>
         </div>
       </div>
       <div class="menu-ranking">
-        <h3><span aria-hidden="true">🏆</span> 명예의 전당</h3>
-        <div class="ranking-tabs" id="ranking-tabs" role="tablist" aria-label="랭킹 필터">
-          <button data-mode="all" class="active">전체</button>
-          <button data-mode="classic">클래식</button>
-          <button data-mode="hard">하드</button>
-          <button data-mode="gravity">그래비티</button>
-          <button data-mode="online">온라인</button>
+        <h3><span aria-hidden="true">🏆</span> Hall of Fame</h3>
+        <div class="ranking-tabs" id="ranking-tabs" role="tablist" aria-label="Ranking filter">
+          <button data-mode="all" class="active">All</button>
+          <button data-mode="classic">Classic</button>
+          <button data-mode="hard">Hard</button>
+          <button data-mode="gravity">Gravity</button>
+          <button data-mode="online">Online</button>
         </div>
         <ul id="menu-ranking" class="ranking"></ul>
         <div class="ranking-pagination" id="ranking-pagination"></div>
@@ -367,15 +378,16 @@ app.innerHTML = `
     <div class="game-screen" id="game-screen" role="main">
       <header class="topbar">
         <div class="brand">
-          <div class="wordmark">테토리스</div>
-          <div class="tagline">시원하게 쌓고, 터뜨리고, 랭크를 올리자</div>
+          <div class="wordmark">Drop the Cube</div>
+          <div class="tagline">Stack, clear, and climb the ranks</div>
         </div>
+        <div id="auth-container"></div>
         <div class="top-actions">
           <div class="hearts" id="hearts"></div>
           <div class="recharge" id="recharge"></div>
-          <button class="ghost" id="menu-btn">일시정지</button>
-          <button class="ghost" id="store-btn">하트 상점</button>
-          <button class="ghost" id="theme-btn">테마</button>
+          <button class="ghost" id="menu-btn">Pause</button>
+          <button class="ghost" id="store-btn">Heart Store</button>
+          <button class="ghost" id="theme-btn">Theme</button>
         </div>
       </header>
 
@@ -383,52 +395,52 @@ app.innerHTML = `
         <section class="board-panel">
           <div class="hud">
             <div class="hud-block">
-              <div class="label">모드</div>
+              <div class="label">Mode</div>
               <div class="value" id="mode-display">-</div>
             </div>
             <div class="hud-block">
-              <div class="label">스코어</div>
+              <div class="label">Score</div>
               <div class="value" id="score">0</div>
             </div>
             <div class="hud-block">
-              <div class="label">레벨</div>
+              <div class="label">Level</div>
               <div class="value" id="level">1</div>
             </div>
             <div class="hud-block">
-              <div class="label">줄</div>
+              <div class="label">Lines</div>
               <div class="value" id="lines">0</div>
             </div>
             <div class="hud-block">
-              <div class="label">콤보</div>
+              <div class="label">Combo</div>
               <div class="value" id="combo">-</div>
             </div>
           </div>
-          <canvas id="board" width="${BOARD_COLS * TILE}" height="${(BOARD_ROWS + HIDDEN_ROWS) * TILE}" role="img" aria-label="테트리스 게임 보드"></canvas>
+          <canvas id="board" width="${BOARD_COLS * TILE}" height="${(BOARD_ROWS + HIDDEN_ROWS) * TILE}" role="img" aria-label="Drop the Cube game board"></canvas>
           <div class="board-overlay" id="board-overlay"></div>
           <div class="floating" id="effects"></div>
         </section>
 
         <aside class="sidebar">
           <div class="card">
-            <div class="card-title">다음 블록</div>
-            <canvas id="next" role="img" aria-label="다음에 나올 블록 미리보기"></canvas>
+            <div class="card-title">Next Pieces</div>
+            <canvas id="next" role="img" aria-label="Preview of upcoming pieces"></canvas>
           </div>
           <div class="card">
-            <div class="card-title">이번 게임 랭킹</div>
+            <div class="card-title">Game Rankings</div>
             <ul id="ranking" class="ranking"></ul>
           </div>
           <div class="card">
-            <div class="card-title">상점</div>
+            <div class="card-title">Store</div>
             <div class="store">
-              <button data-pack="1" class="pill">하트 1개 · $1</button>
-              <button data-pack="3" class="pill">하트 3개 · $3</button>
-              <button data-pack="unli" class="pill">1시간 무제한 · $5</button>
-              <button data-pack="24h" class="pill">24시간 무제한 · $10</button>
-              <button data-pack="30d" class="pill accent">1달 무제한 · $20</button>
+              <button data-pack="1" class="pill">1 Heart · $1</button>
+              <button data-pack="3" class="pill">3 Hearts · $3</button>
+              <button data-pack="unli" class="pill">1 Hour Unlimited · $5</button>
+              <button data-pack="24h" class="pill">24 Hours Unlimited · $10</button>
+              <button data-pack="30d" class="pill accent">30 Days Unlimited · $20</button>
             </div>
           </div>
           <div class="card">
-            <div class="card-title">테마</div>
+            <div class="card-title">Theme</div>
             <div class="theme-list" id="theme-list"></div>
           </div>
         </aside>
@@ -453,28 +465,28 @@ app.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="store-modal-title">하트 상점</h2>
-          <button class="modal-close" data-modal-close="store-modal" aria-label="닫기">&times;</button>
+          <h2 id="store-modal-title">Heart Store</h2>
+          <button class="modal-close" data-modal-close="store-modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-products">
           <button class="modal-product-pill" data-pack="1">
-            <div class="pill-amount">❤️ 1개</div>
+            <div class="pill-amount">❤️ 1 Heart</div>
             <div class="pill-price">$1</div>
           </button>
           <button class="modal-product-pill" data-pack="3">
-            <div class="pill-amount">❤️❤️❤️ 3개</div>
+            <div class="pill-amount">❤️❤️❤️ 3 Hearts</div>
             <div class="pill-price">$3</div>
           </button>
           <button class="modal-product-pill" data-pack="unli">
-            <div class="pill-amount">⚡ 1시간 무제한</div>
+            <div class="pill-amount">⚡ 1 Hour Unlimited</div>
             <div class="pill-price">$5</div>
           </button>
           <button class="modal-product-pill" data-pack="24h">
-            <div class="pill-amount">⚡ 24시간 무제한</div>
+            <div class="pill-amount">⚡ 24 Hours Unlimited</div>
             <div class="pill-price">$10</div>
           </button>
           <button class="modal-product-pill accent" data-pack="30d">
-            <div class="pill-amount">⚡ 1달 무제한</div>
+            <div class="pill-amount">⚡ 30 Days Unlimited</div>
             <div class="pill-price">$20</div>
           </button>
         </div>
@@ -486,29 +498,29 @@ app.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="purchase-modal-title">하트가 없어요!</h2>
-          <button class="modal-close" data-modal-close="purchase-modal" aria-label="닫기">&times;</button>
+          <h2 id="purchase-modal-title">Out of Hearts!</h2>
+          <button class="modal-close" data-modal-close="purchase-modal" aria-label="Close">&times;</button>
         </div>
-        <p class="modal-message">지금 구매하고 게임을 계속하세요!</p>
+        <p class="modal-message">Purchase now to continue playing!</p>
         <div class="modal-products">
           <button class="modal-product-pill" data-pack="1">
-            <div class="pill-amount">❤️ 1개</div>
+            <div class="pill-amount">❤️ 1 Heart</div>
             <div class="pill-price">$1</div>
           </button>
           <button class="modal-product-pill" data-pack="3">
-            <div class="pill-amount">❤️❤️❤️ 3개</div>
+            <div class="pill-amount">❤️❤️❤️ 3 Hearts</div>
             <div class="pill-price">$3</div>
           </button>
           <button class="modal-product-pill" data-pack="unli">
-            <div class="pill-amount">⚡ 1시간 무제한</div>
+            <div class="pill-amount">⚡ 1 Hour Unlimited</div>
             <div class="pill-price">$5</div>
           </button>
           <button class="modal-product-pill" data-pack="24h">
-            <div class="pill-amount">⚡ 24시간 무제한</div>
+            <div class="pill-amount">⚡ 24 Hours Unlimited</div>
             <div class="pill-price">$10</div>
           </button>
           <button class="modal-product-pill accent" data-pack="30d">
-            <div class="pill-amount">⚡ 1달 무제한</div>
+            <div class="pill-amount">⚡ 30 Days Unlimited</div>
             <div class="pill-price">$20</div>
           </button>
         </div>
@@ -520,15 +532,15 @@ app.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="revive-modal-title">게임 오버!</h2>
+          <h2 id="revive-modal-title">Game Over!</h2>
         </div>
-        <p class="modal-message"><span id="revive-score">0</span>점을 얻었습니다!</p>
+        <p class="modal-message">You scored <span id="revive-score">0</span> points!</p>
         <div class="modal-buttons">
           <button class="modal-action-btn continue" id="revive-continue-btn">
-            <div>❤️ 계속하기</div>
-            <div class="pill-price" id="revive-cost">하트 1개 사용</div>
+            <div>❤️ Continue</div>
+            <div class="pill-price" id="revive-cost">Use 1 Heart</div>
           </button>
-          <button class="modal-action-btn restart" id="revive-restart-btn">메인으로</button>
+          <button class="modal-action-btn restart" id="revive-restart-btn">Back to Menu</button>
         </div>
       </div>
     </div>
@@ -538,14 +550,61 @@ app.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="pause-modal-title">일시정지</h2>
-          <button class="modal-close" data-modal-close="pause-modal" aria-label="닫기">&times;</button>
+          <h2 id="pause-modal-title">Paused</h2>
+          <button class="modal-close" data-modal-close="pause-modal" aria-label="Close">&times;</button>
         </div>
-        <p class="modal-message">게임이 일시정지되었습니다.</p>
+        <p class="modal-message">Game is paused.</p>
         <div class="modal-buttons">
-          <button class="modal-action-btn continue" id="pause-continue-btn">계속하기</button>
-          <button class="modal-action-btn restart" id="pause-quit-btn">게임 종료 (메인 메뉴)</button>
+          <button class="modal-action-btn continue" id="pause-continue-btn">Continue</button>
+          <button class="modal-action-btn restart" id="pause-quit-btn">Quit Game (Main Menu)</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal" role="dialog" aria-labelledby="auth-modal-title" aria-modal="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="auth-modal-title">Login Required</h2>
+          <button class="modal-close" data-modal-close="auth-modal" aria-label="Close">&times;</button>
+        </div>
+        <p class="modal-message">Please log in to submit your score to the leaderboard</p>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login">Login</button>
+          <button class="auth-tab" data-tab="signup">Sign Up</button>
+        </div>
+
+        <div id="auth-login-form" class="auth-form active">
+          <button class="auth-google-btn" id="google-login-btn">
+            <span class="google-icon">G</span>
+            Continue with Google
+          </button>
+
+          <div class="auth-divider"><span>or</span></div>
+
+          <input type="email" id="login-email" placeholder="Email" class="auth-input" />
+          <input type="password" id="login-password" placeholder="Password" class="auth-input" />
+          <button class="auth-submit-btn" id="login-submit-btn">Log In</button>
+          <div class="auth-error" id="login-error"></div>
+        </div>
+
+        <div id="auth-signup-form" class="auth-form">
+          <button class="auth-google-btn" id="google-signup-btn">
+            <span class="google-icon">G</span>
+            Continue with Google
+          </button>
+
+          <div class="auth-divider"><span>or</span></div>
+
+          <input type="email" id="signup-email" placeholder="Email" class="auth-input" />
+          <input type="password" id="signup-password" placeholder="Password (min 6 characters)" class="auth-input" />
+          <button class="auth-submit-btn" id="signup-submit-btn">Sign Up</button>
+          <div class="auth-error" id="signup-error"></div>
+        </div>
+
+        <button class="modal-action-btn" id="auth-guest-btn">Continue as Guest</button>
       </div>
     </div>
   </div>
@@ -581,6 +640,11 @@ let menuBtn: HTMLButtonElement
 let menuScreen: HTMLDivElement
 let gameScreen: HTMLDivElement
 let rankingTabs: HTMLDivElement
+
+// Auth state
+let currentUser: AuthUser | null = null
+let authContainer: HTMLDivElement
+let pendingRankingSubmission: RankingEntry | null = null
 
 const state: GameState = {
   grid: createGrid(),
@@ -644,6 +708,7 @@ function initializeDOM() {
   menuScreen = document.querySelector<HTMLDivElement>('#menu-screen')!
   gameScreen = document.querySelector<HTMLDivElement>('#game-screen')!
   rankingTabs = document.querySelector<HTMLDivElement>('#ranking-tabs')!
+  authContainer = document.querySelector<HTMLDivElement>('#auth-container')!
 
   applyTheme(loadTheme())
   renderThemeList()
@@ -654,6 +719,19 @@ function initializeDOM() {
   bindModeCards()
   bindRankingTabs()
   updateScreenVisibility()
+
+  // Initialize auth BEFORE ensureBillingReady
+  initAuth()
+    .then(() => {
+      currentUser = getCurrentUser()
+      renderAuthUI()
+      setupAuthListeners()
+    })
+    .catch(() => {})
+
+  // Clear old rankings data (one-time migration)
+  migrateRankingData()
+
   ensureBillingReady().catch(() => {})
 
   const resizeObserver = new ResizeObserver(() => {
@@ -693,6 +771,139 @@ function updateScreenVisibility() {
   } else {
     menuScreen.style.display = 'none'
     gameScreen.style.display = 'block'
+  }
+}
+
+// ---------- Auth Management ----------
+
+function migrateRankingData() {
+  const hasCleared = localStorage.getItem('tetoris-rankings-cleared')
+  if (!hasCleared) {
+    localStorage.removeItem('tetoris-rankings')
+    localStorage.setItem('tetoris-rankings-cleared', 'true')
+  }
+}
+
+function renderAuthUI() {
+  if (!authContainer) return
+
+  if (currentUser) {
+    const initial = currentUser.displayName?.charAt(0).toUpperCase() || '?'
+    const avatar = currentUser.avatarUrl
+      ? `<img src="${currentUser.avatarUrl}" class="user-avatar" alt="Avatar" />`
+      : `<div class="user-avatar">${initial}</div>`
+
+    authContainer.innerHTML = `
+      <div class="user-info">
+        ${avatar}
+        <span class="user-name">${currentUser.displayName || 'Player'}</span>
+        <button class="auth-btn" id="logout-btn">Logout</button>
+      </div>
+    `
+
+    document.querySelector('#logout-btn')?.addEventListener('click', handleLogout)
+  } else {
+    authContainer.innerHTML = `
+      <button class="auth-btn" id="login-btn">Login</button>
+    `
+
+    document.querySelector('#login-btn')?.addEventListener('click', () => showModal('auth-modal'))
+  }
+}
+
+async function handleLogout() {
+  try {
+    await signOut()
+    currentUser = null
+    renderAuthUI()
+  } catch (error) {
+    console.error('Logout error:', error)
+    alert('Failed to logout. Please try again.')
+  }
+}
+
+function setupAuthListeners() {
+  // Listen for auth state changes
+  onAuthStateChange((user) => {
+    currentUser = user
+    renderAuthUI()
+
+    if (user && pendingRankingSubmission) {
+      void submitAuthenticatedRanking(pendingRankingSubmission)
+      pendingRankingSubmission = null
+      hideModal('auth-modal')
+    }
+  })
+}
+
+async function handleGoogleLogin() {
+  try {
+    await signInWithGoogle()
+  } catch (error: any) {
+    showAuthError('login', error.message || 'Failed to login with Google')
+  }
+}
+
+async function handleEmailLogin() {
+  const emailInput = document.querySelector<HTMLInputElement>('#login-email')!
+  const passwordInput = document.querySelector<HTMLInputElement>('#login-password')!
+  const email = emailInput.value.trim()
+  const password = passwordInput.value
+
+  clearAuthError('login')
+
+  if (!email || !password) {
+    showAuthError('login', 'Please enter email and password')
+    return
+  }
+
+  try {
+    await signInWithEmail(email, password)
+  } catch (error: any) {
+    showAuthError('login', error.message || 'Invalid email or password')
+  }
+}
+
+async function handleEmailSignup() {
+  const emailInput = document.querySelector<HTMLInputElement>('#signup-email')!
+  const passwordInput = document.querySelector<HTMLInputElement>('#signup-password')!
+  const email = emailInput.value.trim()
+  const password = passwordInput.value
+
+  clearAuthError('signup')
+
+  if (!email || !password) {
+    showAuthError('signup', 'Please enter email and password')
+    return
+  }
+
+  if (password.length < 6) {
+    showAuthError('signup', 'Password must be at least 6 characters')
+    return
+  }
+
+  try {
+    await signUpWithEmail(email, password)
+    showAuthError('signup', 'Check your email to confirm your account!', false)
+    emailInput.value = ''
+    passwordInput.value = ''
+  } catch (error: any) {
+    showAuthError('signup', error.message || 'Failed to sign up')
+  }
+}
+
+function showAuthError(form: 'login' | 'signup', message: string, isError = true) {
+  const errorEl = document.querySelector<HTMLDivElement>(`#${form}-error`)
+  if (errorEl) {
+    errorEl.textContent = message
+    errorEl.style.color = isError ? '#ff6b6b' : '#4ade80'
+  }
+}
+
+function clearAuthError(form: 'login' | 'signup') {
+  const errorEl = document.querySelector<HTMLDivElement>(`#${form}-error`)
+  if (errorEl) {
+    errorEl.textContent = ''
   }
 }
 
@@ -736,44 +947,44 @@ function bindRankingTabs() {
 }
 
 async function renderRanking() {
-  rankingEl.innerHTML = '<li style="color:var(--muted);text-align:center">불러오는 중...</li>'
+  rankingEl.innerHTML = '<li style="color:var(--muted);text-align:center">Loading...</li>'
   const rankings = await fetchRankings(state.mode, 3)
   rankingEl.innerHTML =
     rankings.length > 0
       ? rankings
           .map(
             (r, i) =>
-              `<li><span>${i + 1}위</span><span>${r.name}</span><span>${abbreviateScore(r.score)}</span></li>`
+              `<li><span>#${i + 1}</span><span>${r.name}</span><span>${abbreviateScore(r.score)}</span></li>`
           )
           .join('')
-      : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">아직 기록이 없어요</li>'
+      : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">No records yet</li>'
 }
 
 async function renderMenuRanking(mode: ModeKey | 'all', page: number = 0) {
   currentRankingMode = mode
   currentRankingPage = page
-  
-  menuRankingEl.innerHTML = '<li style="color:var(--muted);text-align:center">불러오는 중...</li>'
-  
+
+  menuRankingEl.innerHTML = '<li style="color:var(--muted);text-align:center">Loading...</li>'
+
   // Fetch up to 100 rankings total
   const allRankings = await fetchRankings(mode, 100)
   totalRankingPages = Math.ceil(allRankings.length / RANKINGS_PER_PAGE)
-  
+
   // Get current page rankings
   const startIdx = page * RANKINGS_PER_PAGE
   const endIdx = startIdx + RANKINGS_PER_PAGE
   const rankings = allRankings.slice(startIdx, endIdx)
-  
+
   menuRankingEl.innerHTML =
     rankings.length > 0
       ? rankings
           .map(
             (r, i) =>
-              `<li><span>${startIdx + i + 1}위</span><span>${r.country || '🌐'}</span><span>${r.name}</span><span>${getModeLabel(r.mode)}</span><span>${abbreviateScore(r.score)}</span></li>`
+              `<li><span>#${startIdx + i + 1}</span><span>${r.country || '🌐'}</span><span>${r.name}</span><span>${getModeLabel(r.mode)}</span><span>${abbreviateScore(r.score)}</span></li>`
           )
           .join('')
-      : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">아직 기록이 없어요</li>'
-  
+      : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">No records yet</li>'
+
   renderRankingPagination()
 }
 
@@ -1222,26 +1433,35 @@ function gameOver() {
   state.running = 'gameover'
   const reviveScoreEl = document.querySelector<HTMLSpanElement>('#revive-score')!
   reviveScoreEl.innerText = abbreviateScore(state.score)
-  
-  // 첫 번째 사망 - 부활 기회 제공
+
+  // First death - offer revival
   if (!state.reviveUsed) {
     showModal('revive-modal')
   } else {
-    // 두 번째 사망 - 바로 게임 종료 및 랭킹 등록
-    hideModal('revive-modal')
-    const name = prompt('최종 점수: ' + abbreviateScore(state.score) + '\n랭킹에 등록할 이름을 입력하세요:', '익명')
-    if (name && name.trim()) {
-      const entry: RankingEntry = {
-        name: name.trim().slice(0, 12),
-        score: state.score,
-        mode: state.mode,
-        date: Date.now(),
-        country: getUserCountryFlag()
-      }
-      void submitRanking(entry).then(() => void renderMenuRanking('all'))
-    }
-    returnToMenu()
+    // Second death - end game and register ranking
+    handleGameOver()
   }
+}
+
+async function handleGameOver() {
+  hideModal('revive-modal')
+
+  const entry: RankingEntry = {
+    name: currentUser?.displayName || 'Anonymous',
+    score: state.score,
+    mode: state.mode,
+    date: Date.now(),
+    country: getUserCountryFlag()
+  }
+
+  if (isAuthenticated()) {
+    await submitAuthenticatedRanking(entry)
+  } else {
+    pendingRankingSubmission = entry
+    showModal('auth-modal')
+  }
+
+  returnToMenu()
 }
 
 // ---------- Hearts ----------
@@ -1297,7 +1517,7 @@ function renderHearts() {
   const unlimited = heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now()
   const full = '❤'
   const empty = '♡'
-  const text = unlimited ? '∞ (1시간 무제한)' : `${full.repeat(hearts)}${empty.repeat(HEART_MAX - hearts)}`
+  const text = unlimited ? '∞ (Unlimited)' : `${full.repeat(hearts)}${empty.repeat(HEART_MAX - hearts)}`
   heartsEl.textContent = text
   menuHeartsEl.textContent = text
 }
@@ -1308,12 +1528,12 @@ function renderRecharge() {
   let text = ''
   if (heartState.unlimitedUntil && heartState.unlimitedUntil > now) {
     const remain = heartState.unlimitedUntil - now
-    text = `무제한 ${formatMs(remain)} 남음`
+    text = `Unlimited ${formatMs(remain)} left`
   } else if (!next) {
-    text = '충전 대기 없음'
+    text = 'No recharge pending'
   } else {
     const remain = next - now
-    text = `다음 하트 ${formatMs(remain)} 후 충전`
+    text = `Next heart in ${formatMs(remain)}`
   }
   rechargeEl.textContent = text
   menuRechargeEl.textContent = text
@@ -1412,19 +1632,19 @@ function bindEventListeners() {
   // Revive modal buttons
   document.querySelector<HTMLButtonElement>('#revive-continue-btn')?.addEventListener('click', () => {
     if (!hasHeart()) {
-      alert('하트가 없어요!')
+      alert('Out of hearts!')
       return
     }
     consumeHeart()
     renderHearts()
     renderRecharge()
-    
+
     // Clear the board
     state.grid = createGrid()
-    
+
     // Spawn a new piece
     state.active = spawnPiece()
-    
+
     state.reviveUsed = true
     state.running = 'playing'
     hideModal('revive-modal')
@@ -1432,18 +1652,62 @@ function bindEventListeners() {
   })
 
   document.querySelector<HTMLButtonElement>('#revive-restart-btn')?.addEventListener('click', () => {
-    hideModal('revive-modal')
-    const name = prompt('이 기록을 랭킹에 등록할 이름을 입력하세요:', '익명')
-    if (name && name.trim()) {
-      const entry: RankingEntry = {
-        name: name.trim().slice(0, 12),
-        score: state.score,
-        mode: state.mode,
-        date: Date.now()
+    handleGameOver()
+  })
+
+  // Auth modal - tab switching
+  document.querySelectorAll<HTMLButtonElement>('.auth-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.dataset.tab
+      if (targetTab) {
+        document.querySelectorAll('.auth-tab').forEach((t) => t.classList.remove('active'))
+        tab.classList.add('active')
+        document.querySelectorAll('.auth-form').forEach((f) => f.classList.remove('active'))
+        document.querySelector(`#auth-${targetTab}-form`)?.classList.add('active')
       }
-      void submitRanking(entry).then(() => void renderMenuRanking('all'))
+    })
+  })
+
+  // Auth modal - Google login buttons
+  document.querySelector('#google-login-btn')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    void handleGoogleLogin()
+  })
+  document.querySelector('#google-signup-btn')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    void handleGoogleLogin()
+  })
+
+  // Auth modal - Email login
+  document.querySelector('#login-submit-btn')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    void handleEmailLogin()
+  })
+
+  // Auth modal - Email signup
+  document.querySelector('#signup-submit-btn')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    void handleEmailSignup()
+  })
+
+  // Auth modal - Guest button
+  document.querySelector('#auth-guest-btn')?.addEventListener('click', () => {
+    hideModal('auth-modal')
+    pendingRankingSubmission = null
+  })
+
+  // Auth modal - Enter key on password fields
+  document.querySelector('#login-password')?.addEventListener('keypress', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') {
+      e.preventDefault()
+      void handleEmailLogin()
     }
-    returnToMenu()
+  })
+  document.querySelector('#signup-password')?.addEventListener('keypress', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') {
+      e.preventDefault()
+      void handleEmailSignup()
+    }
   })
 
   themeBtn.addEventListener('click', cycleTheme)
@@ -1504,7 +1768,7 @@ function pauseGame(message = '') {
 }
 
 function openPauseModal() {
-  pauseGame('일시정지')
+  pauseGame('Paused')
   showModal('pause-modal')
 }
 
@@ -1530,7 +1794,7 @@ function handleStorePurchase(pack: string) {
       }
     })
     .catch(() => {
-      alert('결제에 실패했습니다. 다시 시도해주세요.')
+      alert('Payment failed. Please try again.')
       hideModal('store-modal')
       hideModal('purchase-modal')
       if (state.running === 'paused') resumeGame()
@@ -1656,13 +1920,13 @@ async function simulateLoading() {
   state.running = 'loading'
   // Prevent scrolling during loading
   document.body.style.overflow = 'hidden'
-  
+
   let progress = 0
   return new Promise<void>((resolve) => {
     const timer = setInterval(() => {
       progress = Math.min(100, progress + Math.random() * 18)
       loadingBar.style.width = `${progress}%`
-      loadingText.textContent = progress < 100 ? `로딩 중... ${progress.toFixed(0)}%` : '준비 완료'
+      loadingText.textContent = progress < 100 ? `Loading... ${progress.toFixed(0)}%` : 'Ready'
       if (progress >= 100) {
         clearInterval(timer)
         loadingLayer.classList.add('hidden')
@@ -1715,7 +1979,7 @@ async function fetchRankings(mode: ModeKey | 'all', limit: number): Promise<Rank
     return localFiltered.slice(0, limit)
   }
   return data.map((row) => ({
-    name: row.name ?? '무명',
+    name: row.name ?? 'Unknown',
     score: row.score ?? 0,
     mode: (row.mode as ModeKey) ?? 'classic',
     date: row.created_at ? Date.parse(row.created_at as string) : Date.now(),
@@ -1737,12 +2001,41 @@ async function submitRanking(entry: RankingEntry) {
   if (error) return
 }
 
+async function submitAuthenticatedRanking(entry: RankingEntry) {
+  const client = getSupabase()
+  if (!client) return
+
+  const user = getCurrentUser()
+  if (!user) {
+    await submitRanking(entry)
+    return
+  }
+
+  const { error } = await client.from('rankings').insert({
+    user_id: user.id,
+    display_name: user.displayName,
+    name: user.displayName || entry.name,
+    score: entry.score,
+    mode: entry.mode,
+    country: entry.country || '🌐',
+    created_at: new Date(entry.date).toISOString()
+  })
+
+  if (error) {
+    console.error('Failed to submit ranking:', error)
+    return
+  }
+
+  addRanking(entry)
+  await renderMenuRanking('all')
+}
+
 function getModeLabel(mode: ModeKey): string {
   const labels: Record<ModeKey, string> = {
-    classic: '클래식',
-    hard: '하드',
-    gravity: '그래비티',
-    online: '온라인'
+    classic: 'Classic',
+    hard: 'Hard',
+    gravity: 'Gravity',
+    online: 'Online'
   }
   return labels[mode]
 }

@@ -46,3 +46,44 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql;
+
+-- ========================================
+-- MIGRATION: Add Authentication Support
+-- Run this after initial table creation
+-- ========================================
+
+-- Add user authentication columns to rankings table
+ALTER TABLE public.rankings
+ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.rankings
+ADD COLUMN IF NOT EXISTS display_name TEXT;
+
+-- Make name column nullable (authenticated users will use display_name)
+ALTER TABLE public.rankings
+ALTER COLUMN name DROP NOT NULL;
+
+-- Add index for user_id lookups
+CREATE INDEX IF NOT EXISTS idx_rankings_user_id ON public.rankings(user_id);
+
+-- Update RLS policies for authenticated users
+DROP POLICY IF EXISTS "Enable insert access for all users" ON public.rankings;
+
+-- New insert policy: authenticated users must use their own user_id, guests can use NULL
+CREATE POLICY "Enable insert for authenticated users" ON public.rankings
+  FOR INSERT
+  WITH CHECK (
+    -- Either authenticated with matching user_id, or anonymous (user_id is null)
+    (auth.uid() = user_id) OR (user_id IS NULL)
+  );
+
+-- Allow users to update their own rankings
+CREATE POLICY "Users can update own rankings" ON public.rankings
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to delete their own rankings
+CREATE POLICY "Users can delete own rankings" ON public.rankings
+  FOR DELETE
+  USING (auth.uid() = user_id);

@@ -41,11 +41,11 @@ const Billing = registerPlugin<BillingPlugin>('Billing', {
 })
 
 export const PRODUCT_CATALOG: Record<BillingProductId, BillingProduct> = {
-  heart_1: { productId: 'heart_1', title: '하트 1개', price: '$1' },
-  heart_3: { productId: 'heart_3', title: '하트 3개', price: '$3' },
-  heart_1h: { productId: 'heart_1h', title: '1시간 무제한', price: '$5' },
-  heart_24h: { productId: 'heart_24h', title: '24시간 무제한', price: '$10' },
-  heart_30d: { productId: 'heart_30d', title: '1달 무제한', price: '$20' }
+  heart_1: { productId: 'heart_1', title: '1 Heart', price: '$1' },
+  heart_3: { productId: 'heart_3', title: '3 Hearts', price: '$3' },
+  heart_1h: { productId: 'heart_1h', title: '1 Hour Unlimited', price: '$5' },
+  heart_24h: { productId: 'heart_24h', title: '24 Hours Unlimited', price: '$10' },
+  heart_30d: { productId: 'heart_30d', title: '30 Days Unlimited', price: '$20' }
 }
 
 let initialized = false
