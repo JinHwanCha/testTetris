@@ -676,7 +676,7 @@ let bag: PieceKey[] = []
 
 let heartState: HeartState = loadHearts()
 // // 테스트: 1시간 무제한 추가
-// heartState.unlimitedUntil = Date.now() + 60 * 60 * 1000
+heartState.unlimitedUntil = Date.now() + 60 * 60 * 1000
 
 function initializeDOM() {
   boardCanvas = document.querySelector<HTMLCanvasElement>('#board')!
@@ -1185,17 +1185,17 @@ function drawNext() {
   nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height)
   state.nextQueue.slice(0, 3).forEach((key, i) => {
     const shape = tetrominoes[key].rotations[0]
-    const tile = 22
-    const offsetX = 10
-    const offsetY = 10 + i * 55
+    const tile = 14
+    const offsetX = 8
+    const offsetY = 6 + i * 35
     shape.forEach((row, y) => {
       row.forEach((val, x) => {
         if (!val) return
         nextCtx.fillStyle = tetrominoes[key].color
         nextCtx.strokeStyle = toAlpha('#000', 0.4)
-        nextCtx.lineWidth = 2
+        nextCtx.lineWidth = 1.5
         nextCtx.beginPath()
-        nextCtx.roundRect(offsetX + x * tile, offsetY + y * tile, tile - 3, tile - 3, 5)
+        nextCtx.roundRect(offsetX + x * tile, offsetY + y * tile, tile - 2, tile - 2, 4)
         nextCtx.fill()
         nextCtx.stroke()
       })
