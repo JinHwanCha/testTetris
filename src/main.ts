@@ -202,64 +202,84 @@ class SoundManager {
   private playBGMLoop() {
     if (!this.audioContext || !this.bgmGainNode || !this.bgmPlaying) return
 
-    // Original BGM composition for "Drop the Cube"
-    // Copyright-free, created specifically for this game
+    // Original BGM - "Cube Rush" - Fast & Energetic
+    // Copyright-free, created for "Drop the Cube"
     const now = this.audioContext.currentTime
-    const bpm = 132
+    const bpm = 160  // Fast tempo for energy
     const beatDuration = 60 / bpm
 
-    // Original melody - upbeat puzzle game theme
-    // Pattern: Energetic, slightly syncopated rhythm with rising/falling phrases
+    // Energetic melody with staccato feel
     const melody = [
-      // Phrase 1 - Opening hook
-      { note: 392, duration: 0.5 },  // G4
-      { note: 440, duration: 0.5 },  // A4
-      { note: 523, duration: 0.75 }, // C5
-      { note: 392, duration: 0.25 }, // G4
-      { note: 349, duration: 0.5 },  // F4
-      { note: 392, duration: 0.5 },  // G4
-      { note: 330, duration: 1 },    // E4
-      // Phrase 2 - Response
-      { note: 294, duration: 0.5 },  // D4
-      { note: 330, duration: 0.5 },  // E4
-      { note: 392, duration: 0.75 }, // G4
-      { note: 440, duration: 0.25 }, // A4
+      // Phrase 1 - Punchy opening
+      { note: 523, duration: 0.25 }, // C5
+      { note: 587, duration: 0.25 }, // D5
+      { note: 659, duration: 0.25 }, // E5
+      { note: 784, duration: 0.25 }, // G5
+      { note: 659, duration: 0.25 }, // E5
+      { note: 587, duration: 0.25 }, // D5
       { note: 523, duration: 0.5 },  // C5
-      { note: 494, duration: 0.5 },  // B4
-      { note: 440, duration: 1 },    // A4
-      // Phrase 3 - Build up
-      { note: 523, duration: 0.5 },  // C5
+      { note: 0, duration: 0.25 },   // Rest
+      { note: 523, duration: 0.25 }, // C5
+      // Phrase 2 - Bounce
+      { note: 698, duration: 0.25 }, // F5
+      { note: 659, duration: 0.25 }, // E5
+      { note: 587, duration: 0.25 }, // D5
+      { note: 523, duration: 0.25 }, // C5
       { note: 587, duration: 0.5 },  // D5
       { note: 659, duration: 0.5 },  // E5
-      { note: 587, duration: 0.5 },  // D5
+      { note: 0, duration: 0.25 },   // Rest
+      // Phrase 3 - Climb
+      { note: 440, duration: 0.25 }, // A4
+      { note: 523, duration: 0.25 }, // C5
+      { note: 587, duration: 0.25 }, // D5
+      { note: 659, duration: 0.25 }, // E5
+      { note: 698, duration: 0.25 }, // F5
+      { note: 784, duration: 0.5 },  // G5
+      { note: 880, duration: 0.25 }, // A5
+      { note: 784, duration: 0.25 }, // G5
+      // Phrase 4 - Drop & resolve
+      { note: 659, duration: 0.25 }, // E5
+      { note: 587, duration: 0.25 }, // D5
       { note: 523, duration: 0.5 },  // C5
-      { note: 440, duration: 0.5 },  // A4
-      { note: 392, duration: 1 },    // G4
-      // Phrase 4 - Resolution
-      { note: 349, duration: 0.5 },  // F4
-      { note: 330, duration: 0.5 },  // E4
-      { note: 294, duration: 0.5 },  // D4
-      { note: 330, duration: 0.5 },  // E4
-      { note: 392, duration: 1.5 },  // G4
-      { note: 0, duration: 0.5 },    // Rest
+      { note: 440, duration: 0.25 }, // A4
+      { note: 392, duration: 0.25 }, // G4
+      { note: 523, duration: 0.5 },  // C5
+      { note: 0, duration: 0.25 },   // Rest
     ]
 
-    // Bass line for depth
+    // Driving bass with rhythm
     const bassLine = [
-      { note: 196, duration: 2 },    // G3
-      { note: 175, duration: 2 },    // F3
-      { note: 165, duration: 2 },    // E3
-      { note: 147, duration: 2 },    // D3
-      { note: 196, duration: 2 },    // G3
-      { note: 220, duration: 2 },    // A3
-      { note: 196, duration: 2 },    // G3
-      { note: 147, duration: 1 },    // D3
-      { note: 165, duration: 1 },    // E3
+      { note: 131, duration: 0.25 }, // C3
+      { note: 0, duration: 0.25 },   // Rest
+      { note: 131, duration: 0.25 }, // C3
+      { note: 196, duration: 0.25 }, // G3
+      { note: 175, duration: 0.25 }, // F3
+      { note: 0, duration: 0.25 },   // Rest
+      { note: 175, duration: 0.25 }, // F3
+      { note: 196, duration: 0.25 }, // G3
+      { note: 165, duration: 0.25 }, // E3
+      { note: 0, duration: 0.25 },   // Rest
+      { note: 165, duration: 0.25 }, // E3
+      { note: 196, duration: 0.25 }, // G3
+      { note: 147, duration: 0.25 }, // D3
+      { note: 0, duration: 0.25 },   // Rest
+      { note: 165, duration: 0.25 }, // E3
+      { note: 196, duration: 0.25 }, // G3
+      { note: 131, duration: 0.25 }, // C3
+      { note: 165, duration: 0.25 }, // E3
+      { note: 196, duration: 0.25 }, // G3
+      { note: 220, duration: 0.25 }, // A3
+      { note: 196, duration: 0.5 },  // G3
+      { note: 175, duration: 0.25 }, // F3
+      { note: 165, duration: 0.25 }, // E3
+      { note: 147, duration: 0.25 }, // D3
+      { note: 131, duration: 0.5 },  // C3
+      { note: 0, duration: 0.25 },   // Rest
     ]
 
     let time = now
 
-    // Play melody
+    // Play melody with punchy attack
     melody.forEach(({ note, duration }) => {
       if (note === 0) {
         time += duration * beatDuration
@@ -271,8 +291,9 @@ class SoundManager {
       osc.type = 'square'
       osc.frequency.value = note
 
-      gain.gain.setValueAtTime(0.12, time)
-      gain.gain.exponentialRampToValueAtTime(0.01, time + duration * beatDuration * 0.85)
+      // Punchy envelope for staccato feel
+      gain.gain.setValueAtTime(0.15, time)
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration * beatDuration * 0.7)
 
       osc.connect(gain)
       gain.connect(this.bgmGainNode!)
@@ -284,17 +305,21 @@ class SoundManager {
       time += duration * beatDuration
     })
 
-    // Play bass line
+    // Play driving bass
     let bassTime = now
     bassLine.forEach(({ note, duration }) => {
+      if (note === 0) {
+        bassTime += duration * beatDuration
+        return
+      }
       const osc = this.audioContext!.createOscillator()
       const gain = this.audioContext!.createGain()
 
-      osc.type = 'triangle'
+      osc.type = 'sawtooth'
       osc.frequency.value = note
 
-      gain.gain.setValueAtTime(0.08, bassTime)
-      gain.gain.exponentialRampToValueAtTime(0.01, bassTime + duration * beatDuration * 0.9)
+      gain.gain.setValueAtTime(0.1, bassTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, bassTime + duration * beatDuration * 0.8)
 
       osc.connect(gain)
       gain.connect(this.bgmGainNode!)
@@ -731,10 +756,12 @@ app.innerHTML = `
     <div class="game-screen" id="game-screen" role="main">
       <header class="topbar">
         <div class="brand">
-          <div class="wordmark">Drop the Cube</div>
-          <div class="tagline">Stack, clear, and climb the ranks</div>
+          <div class="brand-text">
+            <div class="wordmark">Drop the Cube</div>
+            <div class="tagline">Stack, clear, and climb the ranks</div>
+          </div>
+          <div id="auth-container"></div>
         </div>
-        <div id="auth-container"></div>
         <div class="top-actions">
           <div class="hearts" id="hearts"></div>
           <div class="recharge" id="recharge"></div>

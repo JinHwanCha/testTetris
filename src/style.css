@@ -28,16 +28,21 @@ body {
     radial-gradient(circle at 50% 80%, rgba(255, 188, 117, 0.1), transparent 45%),
     var(--bg);
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile browsers */
   width: 100vw;
   overflow: hidden;
+  /* Prevent pull-to-refresh and overscroll on mobile */
+  overscroll-behavior: none;
 }
 
 .shell {
   max-width: min(1200px, 100vw);
   margin: 0 auto;
   padding: 8px clamp(6px, 2vw, 12px) 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom)); /* Safe area for notched devices */
   position: relative;
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile browsers */
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -47,7 +52,7 @@ body {
 
 .topbar {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
   width: 100%;
@@ -57,11 +62,20 @@ body {
 }
 
 .brand {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
   padding: 6px 10px;
   background: linear-gradient(135deg, var(--panel), var(--panel-2));
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+}
+
+.brand-text {
+  min-width: 0;
 }
 
 .wordmark {
@@ -77,6 +91,10 @@ body {
   color: var(--muted);
   font-size: 10px;
   line-height: 1.2;
+}
+
+#auth-container {
+  flex-shrink: 0;
 }
 
 .top-actions {
@@ -1227,6 +1245,26 @@ body {
     .wordmark {
       font-size: 14px;
     }
+
+    .user-info {
+      padding: 2px 6px;
+      gap: 4px;
+    }
+
+    .user-avatar {
+      width: 22px;
+      height: 22px;
+      font-size: 11px;
+    }
+
+    .user-name {
+      font-size: 11px;
+    }
+
+    .auth-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
   }
 }
 
@@ -1373,11 +1411,11 @@ body {
 .user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--panel);
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .user-avatar {
