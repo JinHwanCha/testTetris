@@ -13,6 +13,28 @@ import {
   onAuthStateChange,
   type AuthUser
 } from './auth'
+import {
+  type Match,
+  type NetworkGameState,
+  type MatchResult,
+  type PlayerRank,
+  getOrCreatePlayerRank,
+  useOnlineHeart,
+  getOnlineHearts,
+  getRankDisplayString,
+  joinMatchmaking,
+  leaveMatchmaking,
+  initBattleGame,
+  connectBattle,
+  sendReady,
+  onLinesCleared as battleOnLinesCleared,
+  applyPendingGarbage,
+  getPendingGarbage,
+  onMyGameOver as battleOnMyGameOver,
+  cleanupBattle,
+  getBattleSettings,
+  isInBattle,
+} from './online'
 
 type Grid = (string | 0)[][]
 type Vec2 = { x: number; y: number }
@@ -111,6 +133,14 @@ const RANKINGS_PER_PAGE = 10
 let currentRankingPage = 0
 let totalRankingPages = 0
 let currentRankingMode: ModeKey | 'all' = 'all'
+
+// Battle mode state
+let isBattleMode = false
+let currentPlayerRank: PlayerRank | null = null
+let matchmakingTimer: ReturnType<typeof setInterval> | null = null
+let matchmakingStartTime = 0
+let currentMatch: Match | null = null
+let opponentBoardCtx: CanvasRenderingContext2D | null = null
 
 const themes: Record<ThemeKey, Theme> = {
   neon: {
@@ -607,6 +637,108 @@ app.innerHTML = `
         <button class="modal-action-btn" id="auth-guest-btn">Continue as Guest</button>
       </div>
     </div>
+
+    <!-- Battle Screen -->
+    <div class="battle-screen" id="battle-screen">
+      <div class="battle-header">
+        <div class="battle-player-info">
+          <div class="rank-badge" id="battle-p1-rank"></div>
+          <div class="battle-player-name" id="battle-p1-name">Player 1</div>
+          <div class="battle-player-stats" id="battle-p1-stats"></div>
+        </div>
+        <div class="battle-vs">VS</div>
+        <div class="battle-player-info">
+          <div class="rank-badge" id="battle-p2-rank"></div>
+          <div class="battle-player-name" id="battle-p2-name">Player 2</div>
+          <div class="battle-player-stats" id="battle-p2-stats"></div>
+        </div>
+      </div>
+
+      <div class="battle-boards">
+        <div class="battle-board my-board">
+          <div class="battle-board-label">You</div>
+          <canvas id="battle-my-board" width="${BOARD_COLS * TILE}" height="${(BOARD_ROWS + HIDDEN_ROWS) * TILE}"></canvas>
+          <div class="garbage-meter"><div class="garbage-meter-fill"></div></div>
+          <div class="battle-board-stats">
+            <div class="battle-stat">
+              <div class="battle-stat-label">Score</div>
+              <div class="battle-stat-value" id="my-score">0</div>
+            </div>
+            <div class="battle-stat">
+              <div class="battle-stat-label">Lines</div>
+              <div class="battle-stat-value" id="my-lines">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="battle-board opponent-board">
+          <div class="battle-board-label">Opponent</div>
+          <canvas id="opponent-board" width="${BOARD_COLS * 14}" height="${(BOARD_ROWS + HIDDEN_ROWS) * 14}"></canvas>
+          <div class="battle-board-stats">
+            <div class="battle-stat">
+              <div class="battle-stat-label">Score</div>
+              <div class="battle-stat-value" id="opp-score">0</div>
+            </div>
+            <div class="battle-stat">
+              <div class="battle-stat-label">Lines</div>
+              <div class="battle-stat-value" id="opp-lines">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="battle-countdown" id="battle-countdown">
+        <div class="battle-countdown-number">3</div>
+      </div>
+    </div>
+
+    <!-- Matchmaking Modal -->
+    <div id="matchmaking-modal" class="modal">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content matchmaking-content">
+        <div class="matchmaking-header">
+          <h2>Finding Opponent...</h2>
+          <div class="matchmaking-rank"></div>
+        </div>
+        <div class="matchmaking-spinner"></div>
+        <div class="matchmaking-timer" id="matchmaking-timer">0:00</div>
+        <button class="matchmaking-cancel-btn" id="matchmaking-cancel-btn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Battle Result Modal -->
+    <div id="battle-result-modal" class="modal">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content result-content">
+        <div class="result-header">
+          <h2 id="result-title">Victory!</h2>
+        </div>
+        <div class="result-stats">
+          <div class="result-stat-row">
+            <span class="result-stat-label">Final Score</span>
+            <span class="result-stat-value" id="result-score">0</span>
+          </div>
+          <div class="result-stat-row">
+            <span class="result-stat-label">Lines Cleared</span>
+            <span class="result-stat-value" id="result-lines">0</span>
+          </div>
+          <div class="result-stat-row">
+            <span class="result-stat-label">Garbage Sent</span>
+            <span class="result-stat-value" id="result-garbage">0</span>
+          </div>
+        </div>
+        <div class="result-rank-change">
+          <div class="rank-badge" id="rank-before"></div>
+          <div class="result-rank-arrow">&rarr;</div>
+          <div class="rank-badge" id="rank-after"></div>
+        </div>
+        <div class="result-points-delta" id="points-change">+12</div>
+        <div class="result-buttons">
+          <button class="result-btn primary" id="result-play-again-btn">Play Again</button>
+          <button class="result-btn secondary" id="result-menu-btn">Back to Menu</button>
+        </div>
+      </div>
+    </div>
   </div>
 `
 
@@ -718,6 +850,7 @@ function initializeDOM() {
   void renderMenuRanking('all')
   bindModeCards()
   bindRankingTabs()
+  bindBattleButtons()
   updateScreenVisibility()
 
   // Initialize auth BEFORE ensureBillingReady
@@ -934,6 +1067,32 @@ function bindModeCards() {
   })
 }
 
+function bindBattleButtons() {
+  // Matchmaking cancel button
+  const cancelBtn = document.getElementById('matchmaking-cancel-btn')
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      void cancelMatchmaking()
+    })
+  }
+
+  // Battle result buttons
+  const playAgainBtn = document.getElementById('result-play-again-btn')
+  if (playAgainBtn) {
+    playAgainBtn.addEventListener('click', () => {
+      closeBattleScreen()
+      start('online')
+    })
+  }
+
+  const menuBtn = document.getElementById('result-menu-btn')
+  if (menuBtn) {
+    menuBtn.addEventListener('click', () => {
+      closeBattleScreen()
+    })
+  }
+}
+
 function bindRankingTabs() {
   rankingTabs.querySelectorAll<HTMLButtonElement>('button').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -1043,6 +1202,13 @@ function renderThemeList() {
 
 function start(mode: ModeKey) {
   if (state.running === 'loading') return
+
+  // Online mode requires login and uses battle system
+  if (mode === 'online') {
+    startOnlineBattle()
+    return
+  }
+
   if (!hasHeart()) {
     showModal('purchase-modal')
     purchaseModalMode = mode
@@ -1061,7 +1227,7 @@ function start(mode: ModeKey) {
   state.multiplier = 1
   state.mode = mode
   state.effects = []
-  state.dropInterval = mode === 'classic' ? 900 : mode === 'gravity' ? 850 : mode === 'online' ? 780 : 760
+  state.dropInterval = mode === 'classic' ? 900 : mode === 'gravity' ? 850 : 760
   state.dropTimer = 0
   state.garbageTimer = 0
   state.gravityTimer = 0
@@ -1079,6 +1245,401 @@ function start(mode: ModeKey) {
   boardOverlay.innerText = ''
   updateScreenVisibility()
   void renderRanking()
+}
+
+// ---------- Online Battle Mode ----------
+
+async function startOnlineBattle() {
+  // Check authentication
+  if (!isAuthenticated()) {
+    showModal('auth-modal')
+    return
+  }
+
+  const user = getCurrentUser()
+  if (!user) return
+
+  // Get or create player rank
+  currentPlayerRank = await getOrCreatePlayerRank(user.id)
+  if (!currentPlayerRank) {
+    alert('Failed to load rank data')
+    return
+  }
+
+  // Check online hearts
+  const heartInfo = await getOnlineHearts(user.id)
+  if (heartInfo.hearts <= 0) {
+    showModal('purchase-modal')
+    return
+  }
+
+  // Use online heart
+  const heartUsed = await useOnlineHeart(user.id)
+  if (!heartUsed) {
+    alert('Failed to use heart')
+    return
+  }
+
+  // Show matchmaking modal
+  showMatchmakingModal()
+
+  // Start matchmaking
+  matchmakingStartTime = Date.now()
+  updateMatchmakingTimer()
+  matchmakingTimer = setInterval(updateMatchmakingTimer, 1000)
+
+  await joinMatchmaking(
+    { id: user.id, displayName: user.displayName || 'Player' },
+    currentPlayerRank,
+    {
+      onMatchFound: handleMatchFound,
+      onTimeout: handleMatchmakingTimeout,
+      onError: handleMatchmakingError,
+    }
+  )
+}
+
+function showMatchmakingModal() {
+  const modal = document.getElementById('matchmaking-modal')
+  if (!modal) return
+
+  const rankDisplay = modal.querySelector('.matchmaking-rank')
+  if (rankDisplay && currentPlayerRank) {
+    const tierClass = currentPlayerRank.tier.toLowerCase()
+    rankDisplay.innerHTML = `
+      <span class="rank-badge ${tierClass}">
+        ${getRankDisplayString(currentPlayerRank.tier, currentPlayerRank.division)}
+      </span>
+    `
+  }
+
+  showModal('matchmaking-modal')
+}
+
+function updateMatchmakingTimer() {
+  const timerEl = document.getElementById('matchmaking-timer')
+  if (!timerEl) return
+
+  const elapsed = Date.now() - matchmakingStartTime
+  const seconds = Math.floor(elapsed / 1000)
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+function stopMatchmakingTimer() {
+  if (matchmakingTimer) {
+    clearInterval(matchmakingTimer)
+    matchmakingTimer = null
+  }
+}
+
+async function cancelMatchmaking() {
+  stopMatchmakingTimer()
+  hideModal('matchmaking-modal')
+
+  const user = getCurrentUser()
+  if (user) {
+    await leaveMatchmaking(user.id)
+  }
+}
+
+async function handleMatchFound(match: Match) {
+  stopMatchmakingTimer()
+  hideModal('matchmaking-modal')
+
+  currentMatch = match
+  isBattleMode = true
+
+  const user = getCurrentUser()
+  if (!user) return
+
+  // Initialize battle game
+  initBattleGame(match, user.id, {
+    onBattleStart: handleBattleStart,
+    onBattleEnd: handleBattleEnd,
+    onCountdownUpdate: handleCountdownUpdate,
+    onOpponentStateUpdate: handleOpponentStateUpdate,
+    onGarbageReceived: handleGarbageReceived,
+    onOpponentDisconnect: handleOpponentDisconnect,
+    onOpponentReconnect: handleOpponentReconnect,
+  }, {
+    getGameState: getNetworkGameState,
+    getScore: () => state.score,
+    getLines: () => state.lines,
+  })
+
+  // Connect to battle channel
+  const connected = await connectBattle()
+  if (!connected) {
+    alert('Failed to connect to battle')
+    isBattleMode = false
+    currentMatch = null
+    return
+  }
+
+  // Show battle screen
+  showBattleScreen(match)
+
+  // Send ready signal
+  await sendReady()
+}
+
+function handleMatchmakingTimeout() {
+  stopMatchmakingTimer()
+  hideModal('matchmaking-modal')
+  alert('Matchmaking timed out. Please try again.')
+}
+
+function handleMatchmakingError(error: Error) {
+  stopMatchmakingTimer()
+  hideModal('matchmaking-modal')
+  alert(`Matchmaking error: ${error.message}`)
+}
+
+function showBattleScreen(match: Match) {
+  const user = getCurrentUser()
+  if (!user) return
+
+  const isPlayer1 = match.player1Id === user.id
+  const myName = isPlayer1 ? match.player1Name : match.player2Name
+  const opponentName = isPlayer1 ? match.player2Name : match.player1Name
+
+  // Update battle header
+  const p1NameEl = document.getElementById('battle-p1-name')
+  const p2NameEl = document.getElementById('battle-p2-name')
+  if (p1NameEl) p1NameEl.textContent = myName
+  if (p2NameEl) p2NameEl.textContent = opponentName
+
+  // Show rank badges
+  if (currentPlayerRank) {
+    const p1RankEl = document.getElementById('battle-p1-rank')
+    if (p1RankEl) {
+      const tierClass = currentPlayerRank.tier.toLowerCase()
+      p1RankEl.className = `rank-badge ${tierClass}`
+      p1RankEl.textContent = getRankDisplayString(currentPlayerRank.tier, currentPlayerRank.division)
+    }
+  }
+
+  // Initialize opponent canvas
+  const opponentCanvas = document.getElementById('opponent-board') as HTMLCanvasElement
+  if (opponentCanvas) {
+    opponentBoardCtx = opponentCanvas.getContext('2d')
+  }
+
+  // Show battle screen, hide others
+  const battleScreen = document.getElementById('battle-screen')
+  const menuScreen = document.getElementById('menu-screen')
+  const gameScreen = document.getElementById('game-screen')
+
+  if (menuScreen) menuScreen.style.display = 'none'
+  if (gameScreen) gameScreen.style.display = 'none'
+  if (battleScreen) battleScreen.classList.add('active')
+
+  // Show countdown overlay
+  const countdownEl = document.getElementById('battle-countdown')
+  if (countdownEl) countdownEl.classList.add('active')
+}
+
+function handleBattleStart() {
+  // Hide countdown
+  const countdownEl = document.getElementById('battle-countdown')
+  if (countdownEl) countdownEl.classList.remove('active')
+
+  // Initialize game state for battle
+  const settings = getBattleSettings()
+
+  state.grid = createGrid()
+  state.score = 0
+  state.lines = 0
+  state.level = 1
+  state.combo = 0
+  state.multiplier = 1
+  state.mode = 'online'
+  state.effects = []
+  state.dropInterval = settings.dropInterval
+  state.dropTimer = 0
+  state.garbageTimer = 0
+  state.gravityTimer = 0
+  state.speedTimer = 0
+  state.clearingLines = []
+  state.gravityDropping = false
+  bag = []
+  state.active = spawnPiece()
+  state.nextQueue = [pickFromBag(), pickFromBag(), pickFromBag()]
+  state.running = 'playing'
+  state.hold = undefined
+  state.holdLocked = false
+  state.reviveUsed = true // No revive in battle mode
+}
+
+function handleBattleEnd(result: MatchResult) {
+  state.running = 'gameover'
+  isBattleMode = false
+
+  // Show result modal
+  showBattleResultModal(result)
+}
+
+function showBattleResultModal(result: MatchResult) {
+  const modal = document.getElementById('battle-result-modal')
+  if (!modal) return
+
+  const titleEl = modal.querySelector('#result-title') as HTMLElement
+  if (titleEl) {
+    titleEl.textContent = result.isWin ? 'Victory!' : 'Defeat'
+    titleEl.className = result.isWin ? 'victory' : 'defeat'
+  }
+
+  const scoreEl = modal.querySelector('#result-score')
+  if (scoreEl) scoreEl.textContent = abbreviateScore(result.myScore)
+
+  const linesEl = modal.querySelector('#result-lines')
+  if (linesEl) linesEl.textContent = String(result.myLines)
+
+  const garbageEl = modal.querySelector('#result-garbage')
+  if (garbageEl) garbageEl.textContent = String(result.garbageSent)
+
+  // Rank change display
+  const rankBeforeEl = modal.querySelector('#rank-before')
+  const rankAfterEl = modal.querySelector('#rank-after')
+  const pointsDeltaEl = modal.querySelector('#points-change')
+
+  if (rankBeforeEl) {
+    const tierClass = result.rankChange.before.tier.toLowerCase()
+    rankBeforeEl.className = `rank-badge ${tierClass}`
+    rankBeforeEl.textContent = getRankDisplayString(
+      result.rankChange.before.tier,
+      result.rankChange.before.division
+    )
+  }
+
+  if (rankAfterEl) {
+    const tierClass = result.rankChange.after.tier.toLowerCase()
+    rankAfterEl.className = `rank-badge ${tierClass}`
+    rankAfterEl.textContent = getRankDisplayString(
+      result.rankChange.after.tier,
+      result.rankChange.after.division
+    )
+  }
+
+  if (pointsDeltaEl) {
+    const delta = result.rankChange.pointsDelta
+    pointsDeltaEl.textContent = delta >= 0 ? `+${delta}` : String(delta)
+    pointsDeltaEl.className = `result-points-delta ${delta >= 0 ? 'positive' : 'negative'}`
+  }
+
+  showModal('battle-result-modal')
+}
+
+function handleCountdownUpdate(count: number) {
+  const countdownEl = document.getElementById('battle-countdown')
+  const numberEl = countdownEl?.querySelector('.battle-countdown-number')
+
+  if (numberEl) {
+    if (count > 0) {
+      numberEl.textContent = String(count)
+    } else {
+      numberEl.textContent = 'GO!'
+    }
+  }
+}
+
+function handleOpponentStateUpdate(opponentState: NetworkGameState) {
+  // Draw opponent's board
+  if (!opponentBoardCtx) return
+
+  const canvas = opponentBoardCtx.canvas
+  const tileSize = canvas.width / BOARD_COLS
+
+  opponentBoardCtx.clearRect(0, 0, canvas.width, canvas.height)
+
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim()
+  opponentBoardCtx.fillStyle = gridColor
+  opponentBoardCtx.fillRect(0, 0, canvas.width, canvas.height)
+
+  // Draw opponent's grid
+  for (let y = HIDDEN_ROWS; y < BOARD_ROWS + HIDDEN_ROWS; y++) {
+    for (let x = 0; x < BOARD_COLS; x++) {
+      const cell = opponentState.grid[y]?.[x]
+      if (cell && typeof cell === 'string') {
+        const px = x * tileSize
+        const py = (y - HIDDEN_ROWS) * tileSize
+        opponentBoardCtx.fillStyle = cell
+        opponentBoardCtx.fillRect(px + 1, py + 1, tileSize - 2, tileSize - 2)
+      }
+    }
+  }
+
+  // Update opponent stats
+  const oppScoreEl = document.getElementById('opp-score')
+  const oppLinesEl = document.getElementById('opp-lines')
+  if (oppScoreEl) oppScoreEl.textContent = abbreviateScore(opponentState.score)
+  if (oppLinesEl) oppLinesEl.textContent = String(opponentState.lines)
+}
+
+function handleGarbageReceived(lines: number) {
+  // Update garbage meter UI
+  updateGarbageMeter()
+
+  // Visual effect
+  addEffect(`+${lines} garbage!`, 50, 80)
+}
+
+function updateGarbageMeter() {
+  const pending = getPendingGarbage()
+  const meterFill = document.querySelector('.garbage-meter-fill') as HTMLElement
+  if (meterFill) {
+    const maxHeight = 100
+    const height = Math.min(maxHeight, (pending / 10) * maxHeight)
+    meterFill.style.height = `${height}%`
+  }
+}
+
+function handleOpponentDisconnect() {
+  const warning = document.createElement('div')
+  warning.className = 'disconnect-warning'
+  warning.id = 'disconnect-warning'
+  warning.textContent = 'Opponent disconnected. Waiting for reconnection...'
+  document.body.appendChild(warning)
+}
+
+function handleOpponentReconnect() {
+  const warning = document.getElementById('disconnect-warning')
+  if (warning) warning.remove()
+}
+
+function getNetworkGameState(): NetworkGameState {
+  const user = getCurrentUser()
+  return {
+    playerId: user?.id || '',
+    timestamp: Date.now(),
+    grid: state.grid,
+    score: state.score,
+    lines: state.lines,
+    level: state.level,
+    combo: state.combo,
+    activePiece: state.active ? {
+      key: state.active.key,
+      rotation: state.active.rotation,
+      position: state.active.position,
+    } : undefined,
+    isAlive: state.running === 'playing',
+  }
+}
+
+function closeBattleScreen() {
+  if (currentMatch) {
+    cleanupBattle()
+  }
+  isBattleMode = false
+  currentMatch = null
+
+  const battleScreen = document.getElementById('battle-screen')
+  if (battleScreen) battleScreen.classList.remove('active')
+
+  hideModal('battle-result-modal')
+  returnToMenu()
 }
 
 function loop(timestamp: number) {
@@ -1326,6 +1887,16 @@ function lockPiece() {
       state.grid[gy][gx] = tetrominoes[state.active!.key].color
     })
   })
+
+  // Battle mode: apply pending garbage before clearing lines
+  if (isBattleMode && isInBattle()) {
+    const garbageLines = applyPendingGarbage()
+    for (let i = 0; i < garbageLines; i++) {
+      pushGarbage()
+    }
+    updateGarbageMeter()
+  }
+
   clearLines()
   state.active = makeNext()
   state.holdLocked = false
@@ -1392,6 +1963,11 @@ function clearLines() {
     addEffect(`+${abbreviateScore(newScore)}`, 12 + Math.random() * 60, 8 + Math.random() * 60)
     if (state.combo >= 2) addEffect(`x${state.combo}!`, 20 + Math.random() * 50, 25)
 
+    // Battle mode: send garbage to opponent
+    if (isBattleMode && isInBattle()) {
+      battleOnLinesCleared(cleared)
+    }
+
     state.clearingLines = []
   }, 180)
 }
@@ -1431,6 +2007,13 @@ function pushGarbage() {
 
 function gameOver() {
   state.running = 'gameover'
+
+  // Battle mode: notify opponent and end battle
+  if (isBattleMode && isInBattle()) {
+    void battleOnMyGameOver()
+    return
+  }
+
   const reviveScoreEl = document.querySelector<HTMLSpanElement>('#revive-score')!
   reviveScoreEl.innerText = abbreviateScore(state.score)
 

@@ -58,7 +58,7 @@ export async function initAuth(): Promise<void> {
   currentAuthState.loading = false
 
   // Listen for auth changes
-  client.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+  client.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
     currentAuthState.user = mapSupabaseUser(session?.user ?? null)
     notifyListeners(currentAuthState.user)
   })
