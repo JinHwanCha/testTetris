@@ -119,7 +119,7 @@ const HIDDEN_ROWS = 2
 const TILE = 28
 const SOFT_DROP_MULTIPLIER = 18
 const HARD_DROP_BONUS = 6
-const HEART_MAX = 3
+const HEART_MAX = 5
 const HEART_RECHARGE_MS = 30 * 60 * 1000
 const PRODUCT_MAP: Record<string, BillingProductId> = {
   '1': 'heart_1',
@@ -133,6 +133,274 @@ const RANKINGS_PER_PAGE = 10
 let currentRankingPage = 0
 let totalRankingPages = 0
 let currentRankingMode: ModeKey | 'all' = 'all'
+
+// ---------- Sound System ----------
+class SoundManager {
+  private audioContext: AudioContext | null = null
+  private bgmGainNode: GainNode | null = null
+  private sfxGainNode: GainNode | null = null
+  private bgmOscillators: OscillatorNode[] = []
+  private bgmPlaying = false
+  private _bgmEnabled = true
+  private _sfxEnabled = true
+
+  get bgmEnabled() { return this._bgmEnabled }
+  get sfxEnabled() { return this._sfxEnabled }
+
+  init() {
+    if (this.audioContext) return
+    this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+
+    // Create gain nodes for volume control
+    this.bgmGainNode = this.audioContext.createGain()
+    this.bgmGainNode.gain.value = 0.3
+    this.bgmGainNode.connect(this.audioContext.destination)
+
+    this.sfxGainNode = this.audioContext.createGain()
+    this.sfxGainNode.gain.value = 0.5
+    this.sfxGainNode.connect(this.audioContext.destination)
+
+    // Load settings from localStorage
+    const settings = localStorage.getItem('tetoris-sound-settings')
+    if (settings) {
+      const parsed = JSON.parse(settings)
+      this._bgmEnabled = parsed.bgm ?? true
+      this._sfxEnabled = parsed.sfx ?? true
+    }
+  }
+
+  private saveSettings() {
+    localStorage.setItem('tetoris-sound-settings', JSON.stringify({
+      bgm: this._bgmEnabled,
+      sfx: this._sfxEnabled
+    }))
+  }
+
+  toggleBGM() {
+    this._bgmEnabled = !this._bgmEnabled
+    this.saveSettings()
+    if (this._bgmEnabled) {
+      this.startBGM()
+    } else {
+      this.stopBGM()
+    }
+    return this._bgmEnabled
+  }
+
+  toggleSFX() {
+    this._sfxEnabled = !this._sfxEnabled
+    this.saveSettings()
+    return this._sfxEnabled
+  }
+
+  startBGM() {
+    if (!this.audioContext || !this.bgmGainNode || !this._bgmEnabled || this.bgmPlaying) return
+    this.bgmPlaying = true
+    this.playBGMLoop()
+  }
+
+  private playBGMLoop() {
+    if (!this.audioContext || !this.bgmGainNode || !this.bgmPlaying) return
+
+    // Simple retro-style BGM using oscillators
+    const now = this.audioContext.currentTime
+    const bpm = 140
+    const beatDuration = 60 / bpm
+
+    // Tetris-inspired melody pattern (simplified)
+    const melody = [
+      { note: 659, duration: 1 },   // E5
+      { note: 494, duration: 0.5 }, // B4
+      { note: 523, duration: 0.5 }, // C5
+      { note: 587, duration: 1 },   // D5
+      { note: 523, duration: 0.5 }, // C5
+      { note: 494, duration: 0.5 }, // B4
+      { note: 440, duration: 1 },   // A4
+      { note: 440, duration: 0.5 }, // A4
+      { note: 523, duration: 0.5 }, // C5
+      { note: 659, duration: 1 },   // E5
+      { note: 587, duration: 0.5 }, // D5
+      { note: 523, duration: 0.5 }, // C5
+      { note: 494, duration: 1.5 }, // B4
+      { note: 523, duration: 0.5 }, // C5
+      { note: 587, duration: 1 },   // D5
+      { note: 659, duration: 1 },   // E5
+      { note: 523, duration: 1 },   // C5
+      { note: 440, duration: 1 },   // A4
+      { note: 440, duration: 1 },   // A4
+    ]
+
+    let time = now
+    melody.forEach(({ note, duration }) => {
+      const osc = this.audioContext!.createOscillator()
+      const gain = this.audioContext!.createGain()
+
+      osc.type = 'square'
+      osc.frequency.value = note
+
+      gain.gain.setValueAtTime(0.15, time)
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration * beatDuration * 0.9)
+
+      osc.connect(gain)
+      gain.connect(this.bgmGainNode!)
+
+      osc.start(time)
+      osc.stop(time + duration * beatDuration)
+
+      this.bgmOscillators.push(osc)
+      time += duration * beatDuration
+    })
+
+    // Schedule next loop
+    const loopDuration = time - now
+    setTimeout(() => {
+      this.bgmOscillators = []
+      if (this.bgmPlaying) this.playBGMLoop()
+    }, loopDuration * 1000)
+  }
+
+  stopBGM() {
+    this.bgmPlaying = false
+    this.bgmOscillators.forEach(osc => {
+      try { osc.stop() } catch (e) { /* already stopped */ }
+    })
+    this.bgmOscillators = []
+  }
+
+  // Hard drop impact sound
+  playDrop() {
+    if (!this.audioContext || !this.sfxGainNode || !this._sfxEnabled) return
+
+    const osc = this.audioContext.createOscillator()
+    const gain = this.audioContext.createGain()
+
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(150, this.audioContext.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(50, this.audioContext.currentTime + 0.1)
+
+    gain.gain.setValueAtTime(0.3, this.audioContext.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1)
+
+    osc.connect(gain)
+    gain.connect(this.sfxGainNode)
+
+    osc.start()
+    osc.stop(this.audioContext.currentTime + 0.1)
+  }
+
+  // Piece land sound (softer)
+  playLand() {
+    if (!this.audioContext || !this.sfxGainNode || !this._sfxEnabled) return
+
+    const osc = this.audioContext.createOscillator()
+    const gain = this.audioContext.createGain()
+
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(200, this.audioContext.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.05)
+
+    gain.gain.setValueAtTime(0.2, this.audioContext.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.05)
+
+    osc.connect(gain)
+    gain.connect(this.sfxGainNode)
+
+    osc.start()
+    osc.stop(this.audioContext.currentTime + 0.05)
+  }
+
+  // Line clear sound
+  playClear(lines: number) {
+    if (!this.audioContext || !this.sfxGainNode || !this._sfxEnabled) return
+
+    const baseFreq = lines >= 4 ? 523 : lines >= 2 ? 440 : 392 // C5, A4, G4
+
+    for (let i = 0; i < Math.min(lines, 4); i++) {
+      const osc = this.audioContext.createOscillator()
+      const gain = this.audioContext.createGain()
+
+      osc.type = 'square'
+      osc.frequency.value = baseFreq * (1 + i * 0.25)
+
+      const startTime = this.audioContext.currentTime + i * 0.05
+      gain.gain.setValueAtTime(0.2, startTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15)
+
+      osc.connect(gain)
+      gain.connect(this.sfxGainNode)
+
+      osc.start(startTime)
+      osc.stop(startTime + 0.15)
+    }
+  }
+
+  // Move sound
+  playMove() {
+    if (!this.audioContext || !this.sfxGainNode || !this._sfxEnabled) return
+
+    const osc = this.audioContext.createOscillator()
+    const gain = this.audioContext.createGain()
+
+    osc.type = 'sine'
+    osc.frequency.value = 300
+
+    gain.gain.setValueAtTime(0.1, this.audioContext.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.03)
+
+    osc.connect(gain)
+    gain.connect(this.sfxGainNode)
+
+    osc.start()
+    osc.stop(this.audioContext.currentTime + 0.03)
+  }
+
+  // Rotate sound
+  playRotate() {
+    if (!this.audioContext || !this.sfxGainNode || !this._sfxEnabled) return
+
+    const osc = this.audioContext.createOscillator()
+    const gain = this.audioContext.createGain()
+
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(400, this.audioContext.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(600, this.audioContext.currentTime + 0.05)
+
+    gain.gain.setValueAtTime(0.15, this.audioContext.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.05)
+
+    osc.connect(gain)
+    gain.connect(this.sfxGainNode)
+
+    osc.start()
+    osc.stop(this.audioContext.currentTime + 0.05)
+  }
+
+  // Game over sound
+  playGameOver() {
+    if (!this.audioContext || !this.sfxGainNode || !this._sfxEnabled) return
+
+    const notes = [392, 349, 330, 294] // G4, F4, E4, D4
+    notes.forEach((freq, i) => {
+      const osc = this.audioContext!.createOscillator()
+      const gain = this.audioContext!.createGain()
+
+      osc.type = 'square'
+      osc.frequency.value = freq
+
+      const startTime = this.audioContext!.currentTime + i * 0.2
+      gain.gain.setValueAtTime(0.2, startTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3)
+
+      osc.connect(gain)
+      gain.connect(this.sfxGainNode!)
+
+      osc.start(startTime)
+      osc.stop(startTime + 0.3)
+    })
+  }
+}
+
+const soundManager = new SoundManager()
 
 // Battle mode state
 let isBattleMode = false
@@ -418,6 +686,8 @@ app.innerHTML = `
           <button class="ghost" id="menu-btn">Pause</button>
           <button class="ghost" id="store-btn">Heart Store</button>
           <button class="ghost" id="theme-btn">Theme</button>
+          <button class="ghost sound-btn" id="bgm-btn" title="Toggle BGM">🎵</button>
+          <button class="ghost sound-btn" id="sfx-btn" title="Toggle SFX">🔊</button>
         </div>
       </header>
 
@@ -1283,6 +1553,10 @@ function start(mode: ModeKey) {
   boardOverlay.innerText = ''
   updateScreenVisibility()
   void renderRanking()
+
+  // Initialize and start sound
+  soundManager.init()
+  soundManager.startBGM()
 }
 
 // ---------- Online Battle Mode ----------
@@ -1862,6 +2136,7 @@ function move(delta: Vec2) {
   const nextPos = { x: state.active.position.x + delta.x, y: state.active.position.y + delta.y }
   if (!collides(state.active, nextPos, state.active.rotation)) {
     state.active.position = nextPos
+    if (delta.x !== 0) soundManager.playMove()
     return true
   }
   return false
@@ -1873,6 +2148,7 @@ function rotate(dir: number) {
   const nextRotation = (piece.rotation + dir + 4) % tetrominoes[piece.key].rotations.length
   if (!collides(piece, piece.position, nextRotation)) {
     piece.rotation = nextRotation
+    soundManager.playRotate()
     return
   }
   // naive wall kick left/right
@@ -1881,6 +2157,7 @@ function rotate(dir: number) {
     if (!collides(piece, { x: piece.position.x + k, y: piece.position.y }, nextRotation)) {
       piece.position.x += k
       piece.rotation = nextRotation
+      soundManager.playRotate()
       return
     }
   }
@@ -1902,8 +2179,9 @@ function collides(piece: FallingPiece, pos: Vec2, rotation: number) {
 
 function lockPiece() {
   if (!state.active) return
+  soundManager.playLand()
   const shape = currentShape()
-  
+
   // Check if piece is above board (game over)
   for (let y = 0; y < shape.length; y++) {
     for (let x = 0; x < shape[y].length; x++) {
@@ -1915,7 +2193,7 @@ function lockPiece() {
       }
     }
   }
-  
+
   // Lock piece to grid
   shape.forEach((row, y) => {
     row.forEach((val, x) => {
@@ -1950,6 +2228,9 @@ function clearLines() {
     state.combo = 0
     return
   }
+
+  // Play line clear sound
+  soundManager.playClear(filled.length)
 
   // Set clearing animation
   state.clearingLines = filled.slice()
@@ -2033,6 +2314,7 @@ function hardDrop() {
     steps += 1
   }
   state.score += steps * HARD_DROP_BONUS
+  soundManager.playDrop()
   lockPiece()
 }
 
@@ -2045,6 +2327,8 @@ function pushGarbage() {
 
 function gameOver() {
   state.running = 'gameover'
+  soundManager.stopBGM()
+  soundManager.playGameOver()
 
   // Battle mode: notify opponent and end battle
   if (isBattleMode && isInBattle()) {
@@ -2081,6 +2365,8 @@ async function handleGameOver() {
   } else {
     // For guest, save to local rankings only
     addRanking(entry)
+    // Refresh menu ranking for guest too
+    await renderMenuRanking(currentRankingMode)
   }
 
   // Show result modal
@@ -2456,6 +2742,28 @@ function bindEventListeners() {
 
   themeBtn.addEventListener('click', cycleTheme)
   menuThemeBtn.addEventListener('click', cycleTheme)
+
+  // Sound toggle buttons
+  const bgmBtn = document.getElementById('bgm-btn')
+  const sfxBtn = document.getElementById('sfx-btn')
+
+  if (bgmBtn) {
+    bgmBtn.addEventListener('click', () => {
+      soundManager.init()
+      const enabled = soundManager.toggleBGM()
+      bgmBtn.textContent = enabled ? '🎵' : '🔇'
+      bgmBtn.title = enabled ? 'BGM On' : 'BGM Off'
+    })
+  }
+
+  if (sfxBtn) {
+    sfxBtn.addEventListener('click', () => {
+      soundManager.init()
+      const enabled = soundManager.toggleSFX()
+      sfxBtn.textContent = enabled ? '🔊' : '🔈'
+      sfxBtn.title = enabled ? 'SFX On' : 'SFX Off'
+    })
+  }
 }
 
 function bindPad(id: string) {
@@ -2500,6 +2808,7 @@ function hold() {
 function returnToMenu() {
   state.screen = 'menu'
   state.running = 'ready'
+  soundManager.stopBGM()
   updateScreenVisibility()
   renderMenuRanking('all')
   boardOverlay.innerText = ''
