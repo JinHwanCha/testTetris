@@ -167,6 +167,10 @@ class SoundManager {
       this._bgmEnabled = parsed.bgm ?? true
       this._sfxEnabled = parsed.sfx ?? true
     }
+
+    // Apply loaded settings to gain nodes
+    this.bgmGainNode.gain.value = this._bgmEnabled ? 0.3 : 0
+    this.sfxGainNode.gain.value = this._sfxEnabled ? 0.5 : 0
   }
 
   private saveSettings() {
@@ -190,6 +194,9 @@ class SoundManager {
   toggleSFX() {
     this._sfxEnabled = !this._sfxEnabled
     this.saveSettings()
+    if (this.sfxGainNode) {
+      this.sfxGainNode.gain.value = this._sfxEnabled ? 0.5 : 0
+    }
     return this._sfxEnabled
   }
 
@@ -202,84 +209,80 @@ class SoundManager {
   private playBGMLoop() {
     if (!this.audioContext || !this.bgmGainNode || !this.bgmPlaying) return
 
-    // Original BGM - "Cube Rush" - Fast & Energetic
+    // BGM - "Crystal Breeze" - Light & Refreshing
     // Copyright-free, created for "Drop the Cube"
     const now = this.audioContext.currentTime
-    const bpm = 160  // Fast tempo for energy
+    const bpm = 125  // Relaxed but upbeat tempo
     const beatDuration = 60 / bpm
 
-    // Energetic melody with staccato feel
+    // Light, airy melody using pentatonic scale
     const melody = [
-      // Phrase 1 - Punchy opening
-      { note: 523, duration: 0.25 }, // C5
-      { note: 587, duration: 0.25 }, // D5
-      { note: 659, duration: 0.25 }, // E5
-      { note: 784, duration: 0.25 }, // G5
-      { note: 659, duration: 0.25 }, // E5
-      { note: 587, duration: 0.25 }, // D5
-      { note: 523, duration: 0.5 },  // C5
-      { note: 0, duration: 0.25 },   // Rest
-      { note: 523, duration: 0.25 }, // C5
-      // Phrase 2 - Bounce
-      { note: 698, duration: 0.25 }, // F5
-      { note: 659, duration: 0.25 }, // E5
-      { note: 587, duration: 0.25 }, // D5
-      { note: 523, duration: 0.25 }, // C5
+      // Phrase 1 - Gentle opening
+      { note: 659, duration: 0.5 },  // E5
+      { note: 784, duration: 0.5 },  // G5
+      { note: 880, duration: 1 },    // A5
+      { note: 0, duration: 0.5 },    // Rest
+      { note: 784, duration: 0.5 },  // G5
+      { note: 659, duration: 1 },    // E5
+      { note: 0, duration: 0.5 },    // Rest
+      // Phrase 2 - Float up
       { note: 587, duration: 0.5 },  // D5
       { note: 659, duration: 0.5 },  // E5
-      { note: 0, duration: 0.25 },   // Rest
-      // Phrase 3 - Climb
-      { note: 440, duration: 0.25 }, // A4
-      { note: 523, duration: 0.25 }, // C5
-      { note: 587, duration: 0.25 }, // D5
-      { note: 659, duration: 0.25 }, // E5
-      { note: 698, duration: 0.25 }, // F5
+      { note: 784, duration: 1 },    // G5
+      { note: 0, duration: 0.5 },    // Rest
+      { note: 880, duration: 0.5 },  // A5
+      { note: 784, duration: 1 },    // G5
+      { note: 0, duration: 0.5 },    // Rest
+      // Phrase 3 - Descend softly
+      { note: 880, duration: 0.5 },  // A5
       { note: 784, duration: 0.5 },  // G5
-      { note: 880, duration: 0.25 }, // A5
-      { note: 784, duration: 0.25 }, // G5
-      // Phrase 4 - Drop & resolve
-      { note: 659, duration: 0.25 }, // E5
-      { note: 587, duration: 0.25 }, // D5
-      { note: 523, duration: 0.5 },  // C5
-      { note: 440, duration: 0.25 }, // A4
-      { note: 392, duration: 0.25 }, // G4
-      { note: 523, duration: 0.5 },  // C5
-      { note: 0, duration: 0.25 },   // Rest
+      { note: 659, duration: 0.5 },  // E5
+      { note: 587, duration: 0.5 },  // D5
+      { note: 523, duration: 1 },    // C5
+      { note: 0, duration: 0.5 },    // Rest
+      // Phrase 4 - Resolve
+      { note: 587, duration: 0.5 },  // D5
+      { note: 659, duration: 1 },    // E5
+      { note: 0, duration: 1 },      // Rest
     ]
 
-    // Driving bass with rhythm
-    const bassLine = [
-      { note: 131, duration: 0.25 }, // C3
-      { note: 0, duration: 0.25 },   // Rest
-      { note: 131, duration: 0.25 }, // C3
-      { note: 196, duration: 0.25 }, // G3
-      { note: 175, duration: 0.25 }, // F3
-      { note: 0, duration: 0.25 },   // Rest
-      { note: 175, duration: 0.25 }, // F3
-      { note: 196, duration: 0.25 }, // G3
-      { note: 165, duration: 0.25 }, // E3
-      { note: 0, duration: 0.25 },   // Rest
-      { note: 165, duration: 0.25 }, // E3
-      { note: 196, duration: 0.25 }, // G3
-      { note: 147, duration: 0.25 }, // D3
-      { note: 0, duration: 0.25 },   // Rest
-      { note: 165, duration: 0.25 }, // E3
-      { note: 196, duration: 0.25 }, // G3
-      { note: 131, duration: 0.25 }, // C3
-      { note: 165, duration: 0.25 }, // E3
-      { note: 196, duration: 0.25 }, // G3
-      { note: 220, duration: 0.25 }, // A3
-      { note: 196, duration: 0.5 },  // G3
-      { note: 175, duration: 0.25 }, // F3
-      { note: 165, duration: 0.25 }, // E3
-      { note: 147, duration: 0.25 }, // D3
+    // Soft arpeggio bass pattern
+    const bassArpeggio = [
+      // C major arpeggio
       { note: 131, duration: 0.5 },  // C3
-      { note: 0, duration: 0.25 },   // Rest
+      { note: 165, duration: 0.5 },  // E3
+      { note: 196, duration: 0.5 },  // G3
+      { note: 165, duration: 0.5 },  // E3
+      // G major arpeggio
+      { note: 98, duration: 0.5 },   // G2
+      { note: 123, duration: 0.5 },  // B2
+      { note: 147, duration: 0.5 },  // D3
+      { note: 123, duration: 0.5 },  // B2
+      // A minor arpeggio
+      { note: 110, duration: 0.5 },  // A2
+      { note: 131, duration: 0.5 },  // C3
+      { note: 165, duration: 0.5 },  // E3
+      { note: 131, duration: 0.5 },  // C3
+      // F major arpeggio
+      { note: 87, duration: 0.5 },   // F2
+      { note: 110, duration: 0.5 },  // A2
+      { note: 131, duration: 0.5 },  // C3
+      { note: 110, duration: 0.5 },  // A2
+      // Repeat with variation
+      { note: 131, duration: 0.5 },  // C3
+      { note: 165, duration: 0.5 },  // E3
+      { note: 196, duration: 0.5 },  // G3
+      { note: 262, duration: 0.5 },  // C4
+      // Em
+      { note: 82, duration: 0.5 },   // E2
+      { note: 123, duration: 0.5 },  // B2
+      { note: 165, duration: 0.5 },  // E3
+      { note: 123, duration: 0.5 },  // B2
     ]
 
     let time = now
 
-    // Play melody with punchy attack
+    // Play melody with soft sine wave
     melody.forEach(({ note, duration }) => {
       if (note === 0) {
         time += duration * beatDuration
@@ -288,12 +291,13 @@ class SoundManager {
       const osc = this.audioContext!.createOscillator()
       const gain = this.audioContext!.createGain()
 
-      osc.type = 'square'
+      osc.type = 'sine'
       osc.frequency.value = note
 
-      // Punchy envelope for staccato feel
-      gain.gain.setValueAtTime(0.15, time)
-      gain.gain.exponentialRampToValueAtTime(0.01, time + duration * beatDuration * 0.7)
+      // Soft attack, gentle release
+      gain.gain.setValueAtTime(0, time)
+      gain.gain.linearRampToValueAtTime(0.12, time + 0.05)
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration * beatDuration * 0.95)
 
       osc.connect(gain)
       gain.connect(this.bgmGainNode!)
@@ -305,21 +309,19 @@ class SoundManager {
       time += duration * beatDuration
     })
 
-    // Play driving bass
+    // Play soft arpeggio bass with triangle wave
     let bassTime = now
-    bassLine.forEach(({ note, duration }) => {
-      if (note === 0) {
-        bassTime += duration * beatDuration
-        return
-      }
+    bassArpeggio.forEach(({ note, duration }) => {
       const osc = this.audioContext!.createOscillator()
       const gain = this.audioContext!.createGain()
 
-      osc.type = 'sawtooth'
+      osc.type = 'triangle'
       osc.frequency.value = note
 
-      gain.gain.setValueAtTime(0.1, bassTime)
-      gain.gain.exponentialRampToValueAtTime(0.01, bassTime + duration * beatDuration * 0.8)
+      // Very soft, ambient feel
+      gain.gain.setValueAtTime(0, bassTime)
+      gain.gain.linearRampToValueAtTime(0.08, bassTime + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.01, bassTime + duration * beatDuration * 0.9)
 
       osc.connect(gain)
       gain.connect(this.bgmGainNode!)
@@ -2876,6 +2878,20 @@ function bindEventListeners() {
       sfxBtn.textContent = enabled ? '🔊' : '🔈'
       sfxBtn.title = enabled ? 'SFX On' : 'SFX Off'
     })
+  }
+
+  // Initialize button states from localStorage
+  const savedSettings = localStorage.getItem('tetoris-sound-settings')
+  if (savedSettings) {
+    const parsed = JSON.parse(savedSettings)
+    if (bgmBtn && parsed.bgm === false) {
+      bgmBtn.textContent = '🔇'
+      bgmBtn.title = 'BGM Off'
+    }
+    if (sfxBtn && parsed.sfx === false) {
+      sfxBtn.textContent = '🔈'
+      sfxBtn.title = 'SFX Off'
+    }
   }
 }
 
