@@ -808,7 +808,7 @@ let bag: PieceKey[] = []
 
 let heartState: HeartState = loadHearts()
 // // 테스트: 1시간 무제한 추가
-heartState.unlimitedUntil = Date.now() + 60 * 60 * 1000
+// heartState.unlimitedUntil = Date.now() + 60 * 60 * 1000
 
 function initializeDOM() {
   boardCanvas = document.querySelector<HTMLCanvasElement>('#board')!
