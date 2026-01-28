@@ -1,5 +1,6 @@
 -- =============================================
 -- 온라인 대전 및 랭크 시스템용 Supabase 스키마
+-- 재실행 가능하도록 DROP IF EXISTS 포함
 -- =============================================
 
 -- 플레이어 랭크 테이블
@@ -74,6 +75,18 @@ CREATE TABLE IF NOT EXISTS public.match_history (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL
 );
 
+-- Rankings 테이블 생성
+CREATE TABLE IF NOT EXISTS public.rankings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  name TEXT NOT NULL,
+  display_name TEXT,
+  score INTEGER NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'classic',
+  country TEXT DEFAULT '🌐',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 인덱스 생성
 CREATE INDEX IF NOT EXISTS idx_player_ranks_user ON public.player_ranks(user_id);
 CREATE INDEX IF NOT EXISTS idx_player_ranks_tier ON public.player_ranks(tier, division);
@@ -83,12 +96,37 @@ CREATE INDEX IF NOT EXISTS idx_matchmaking_queue_tier ON public.matchmaking_queu
 CREATE INDEX IF NOT EXISTS idx_matches_status ON public.matches(status);
 CREATE INDEX IF NOT EXISTS idx_matches_players ON public.matches(player1_id, player2_id);
 CREATE INDEX IF NOT EXISTS idx_match_history_player ON public.match_history(player_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS rankings_score_idx ON public.rankings(score DESC);
+CREATE INDEX IF NOT EXISTS rankings_mode_idx ON public.rankings(mode);
 
 -- RLS 활성화
 ALTER TABLE public.player_ranks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matchmaking_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rankings ENABLE ROW LEVEL SECURITY;
+
+-- =============================================
+-- 기존 정책 삭제 (재실행 시 에러 방지)
+-- =============================================
+DROP POLICY IF EXISTS "Anyone can read ranks" ON public.player_ranks;
+DROP POLICY IF EXISTS "Users can insert own rank" ON public.player_ranks;
+DROP POLICY IF EXISTS "Users can update own rank" ON public.player_ranks;
+DROP POLICY IF EXISTS "Anyone can read queue" ON public.matchmaking_queue;
+DROP POLICY IF EXISTS "Users can join queue" ON public.matchmaking_queue;
+DROP POLICY IF EXISTS "Users can update own queue entry" ON public.matchmaking_queue;
+DROP POLICY IF EXISTS "Users can leave queue" ON public.matchmaking_queue;
+DROP POLICY IF EXISTS "Players can read own matches" ON public.matches;
+DROP POLICY IF EXISTS "Authenticated users can create matches" ON public.matches;
+DROP POLICY IF EXISTS "Players can update own matches" ON public.matches;
+DROP POLICY IF EXISTS "Users can read own history" ON public.match_history;
+DROP POLICY IF EXISTS "Authenticated users can insert history" ON public.match_history;
+DROP POLICY IF EXISTS "Anyone can view rankings" ON public.rankings;
+DROP POLICY IF EXISTS "Authenticated users can insert rankings" ON public.rankings;
+
+-- =============================================
+-- RLS 정책 생성
+-- =============================================
 
 -- player_ranks RLS 정책
 CREATE POLICY "Anyone can read ranks" ON public.player_ranks
@@ -130,9 +168,38 @@ CREATE POLICY "Users can read own history" ON public.match_history
 CREATE POLICY "Authenticated users can insert history" ON public.match_history
   FOR INSERT WITH CHECK (auth.uid() = player_id);
 
+-- rankings RLS 정책
+CREATE POLICY "Anyone can view rankings" ON public.rankings
+  FOR SELECT USING (true);
+
+CREATE POLICY "Authenticated users can insert rankings" ON public.rankings
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- =============================================
 -- Realtime 활성화
-ALTER PUBLICATION supabase_realtime ADD TABLE public.matchmaking_queue;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
+-- =============================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+    AND tablename = 'matchmaking_queue'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.matchmaking_queue;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+    AND tablename = 'matches'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
+  END IF;
+END $$;
+
+-- =============================================
+-- 함수 및 트리거
+-- =============================================
 
 -- 만료된 매칭 대기열 정리 함수
 CREATE OR REPLACE FUNCTION clean_expired_matchmaking_queue()
@@ -151,6 +218,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- 트리거 (이미 존재하면 무시)
+DROP TRIGGER IF EXISTS update_player_ranks_updated_at ON public.player_ranks;
 CREATE TRIGGER update_player_ranks_updated_at
   BEFORE UPDATE ON public.player_ranks
   FOR EACH ROW
