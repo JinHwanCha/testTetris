@@ -797,9 +797,11 @@ app.innerHTML = `
               <div class="value" id="combo">-</div>
             </div>
           </div>
-          <canvas id="board" width="${BOARD_COLS * TILE}" height="${(BOARD_ROWS + HIDDEN_ROWS) * TILE}" role="img" aria-label="Drop the Cube game board"></canvas>
-          <div class="board-overlay" id="board-overlay"></div>
-          <div class="floating" id="effects"></div>
+          <div class="board-wrapper">
+            <canvas id="board" width="${BOARD_COLS * TILE}" height="${(BOARD_ROWS + HIDDEN_ROWS) * TILE}" role="img" aria-label="Drop the Cube game board"></canvas>
+            <div class="board-overlay" id="board-overlay"></div>
+            <div class="floating" id="effects"></div>
+          </div>
         </section>
 
         <aside class="sidebar">
