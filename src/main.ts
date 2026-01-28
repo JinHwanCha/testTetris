@@ -202,44 +202,77 @@ class SoundManager {
   private playBGMLoop() {
     if (!this.audioContext || !this.bgmGainNode || !this.bgmPlaying) return
 
-    // Simple retro-style BGM using oscillators
+    // Original BGM composition for "Drop the Cube"
+    // Copyright-free, created specifically for this game
     const now = this.audioContext.currentTime
-    const bpm = 140
+    const bpm = 132
     const beatDuration = 60 / bpm
 
-    // Tetris-inspired melody pattern (simplified)
+    // Original melody - upbeat puzzle game theme
+    // Pattern: Energetic, slightly syncopated rhythm with rising/falling phrases
     const melody = [
-      { note: 659, duration: 1 },   // E5
-      { note: 494, duration: 0.5 }, // B4
-      { note: 523, duration: 0.5 }, // C5
-      { note: 587, duration: 1 },   // D5
-      { note: 523, duration: 0.5 }, // C5
-      { note: 494, duration: 0.5 }, // B4
-      { note: 440, duration: 1 },   // A4
-      { note: 440, duration: 0.5 }, // A4
-      { note: 523, duration: 0.5 }, // C5
-      { note: 659, duration: 1 },   // E5
-      { note: 587, duration: 0.5 }, // D5
-      { note: 523, duration: 0.5 }, // C5
-      { note: 494, duration: 1.5 }, // B4
-      { note: 523, duration: 0.5 }, // C5
-      { note: 587, duration: 1 },   // D5
-      { note: 659, duration: 1 },   // E5
-      { note: 523, duration: 1 },   // C5
-      { note: 440, duration: 1 },   // A4
-      { note: 440, duration: 1 },   // A4
+      // Phrase 1 - Opening hook
+      { note: 392, duration: 0.5 },  // G4
+      { note: 440, duration: 0.5 },  // A4
+      { note: 523, duration: 0.75 }, // C5
+      { note: 392, duration: 0.25 }, // G4
+      { note: 349, duration: 0.5 },  // F4
+      { note: 392, duration: 0.5 },  // G4
+      { note: 330, duration: 1 },    // E4
+      // Phrase 2 - Response
+      { note: 294, duration: 0.5 },  // D4
+      { note: 330, duration: 0.5 },  // E4
+      { note: 392, duration: 0.75 }, // G4
+      { note: 440, duration: 0.25 }, // A4
+      { note: 523, duration: 0.5 },  // C5
+      { note: 494, duration: 0.5 },  // B4
+      { note: 440, duration: 1 },    // A4
+      // Phrase 3 - Build up
+      { note: 523, duration: 0.5 },  // C5
+      { note: 587, duration: 0.5 },  // D5
+      { note: 659, duration: 0.5 },  // E5
+      { note: 587, duration: 0.5 },  // D5
+      { note: 523, duration: 0.5 },  // C5
+      { note: 440, duration: 0.5 },  // A4
+      { note: 392, duration: 1 },    // G4
+      // Phrase 4 - Resolution
+      { note: 349, duration: 0.5 },  // F4
+      { note: 330, duration: 0.5 },  // E4
+      { note: 294, duration: 0.5 },  // D4
+      { note: 330, duration: 0.5 },  // E4
+      { note: 392, duration: 1.5 },  // G4
+      { note: 0, duration: 0.5 },    // Rest
+    ]
+
+    // Bass line for depth
+    const bassLine = [
+      { note: 196, duration: 2 },    // G3
+      { note: 175, duration: 2 },    // F3
+      { note: 165, duration: 2 },    // E3
+      { note: 147, duration: 2 },    // D3
+      { note: 196, duration: 2 },    // G3
+      { note: 220, duration: 2 },    // A3
+      { note: 196, duration: 2 },    // G3
+      { note: 147, duration: 1 },    // D3
+      { note: 165, duration: 1 },    // E3
     ]
 
     let time = now
+
+    // Play melody
     melody.forEach(({ note, duration }) => {
+      if (note === 0) {
+        time += duration * beatDuration
+        return
+      }
       const osc = this.audioContext!.createOscillator()
       const gain = this.audioContext!.createGain()
 
       osc.type = 'square'
       osc.frequency.value = note
 
-      gain.gain.setValueAtTime(0.15, time)
-      gain.gain.exponentialRampToValueAtTime(0.01, time + duration * beatDuration * 0.9)
+      gain.gain.setValueAtTime(0.12, time)
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration * beatDuration * 0.85)
 
       osc.connect(gain)
       gain.connect(this.bgmGainNode!)
@@ -249,6 +282,28 @@ class SoundManager {
 
       this.bgmOscillators.push(osc)
       time += duration * beatDuration
+    })
+
+    // Play bass line
+    let bassTime = now
+    bassLine.forEach(({ note, duration }) => {
+      const osc = this.audioContext!.createOscillator()
+      const gain = this.audioContext!.createGain()
+
+      osc.type = 'triangle'
+      osc.frequency.value = note
+
+      gain.gain.setValueAtTime(0.08, bassTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, bassTime + duration * beatDuration * 0.9)
+
+      osc.connect(gain)
+      gain.connect(this.bgmGainNode!)
+
+      osc.start(bassTime)
+      osc.stop(bassTime + duration * beatDuration)
+
+      this.bgmOscillators.push(osc)
+      bassTime += duration * beatDuration
     })
 
     // Schedule next loop
