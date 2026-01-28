@@ -2402,6 +2402,15 @@ function calculateRankPosition(score: number, mode: ModeKey): number {
 
 // ---------- Hearts ----------
 
+// Super accounts with unlimited hearts (for testing)
+const SUPER_ACCOUNTS = ['wlsksl103@gmail.com']
+
+function isSuperAccount(): boolean {
+  const user = getCurrentUser()
+  if (!user || !user.email) return false
+  return SUPER_ACCOUNTS.includes(user.email)
+}
+
 const GUEST_HEART_MAX = 1  // Guest gets 1 free game
 
 interface GuestHeartState {
@@ -2444,6 +2453,9 @@ function saveHearts() {
 }
 
 function hasHeart() {
+  // Super account: always has hearts
+  if (isSuperAccount()) return true
+
   if (heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now()) return true
 
   // Guest user: check guest hearts
@@ -2457,6 +2469,9 @@ function hasHeart() {
 }
 
 function consumeHeart() {
+  // Super account: don't consume hearts
+  if (isSuperAccount()) return
+
   if (heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now()) return
 
   // Guest user: consume guest heart (no recharge)
@@ -2501,6 +2516,13 @@ function tickHearts() {
 }
 
 function renderHearts() {
+  // Super account: show unlimited
+  if (isSuperAccount()) {
+    heartsEl.textContent = '∞ (Admin)'
+    menuHeartsEl.textContent = '∞ (Admin)'
+    return
+  }
+
   const unlimited = heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now()
 
   // Guest user: show guest hearts
@@ -2524,6 +2546,13 @@ function renderHearts() {
 }
 
 function renderRecharge() {
+  // Super account: no recharge needed
+  if (isSuperAccount()) {
+    rechargeEl.textContent = 'Unlimited (Admin)'
+    menuRechargeEl.textContent = 'Unlimited (Admin)'
+    return
+  }
+
   // Guest user: no recharge
   if (!isAuthenticated()) {
     const guestState = loadGuestHearts()
