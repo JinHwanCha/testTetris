@@ -638,6 +638,43 @@ app.innerHTML = `
       </div>
     </div>
 
+    <!-- Game Result Modal -->
+    <div id="result-modal" class="modal" role="dialog" aria-labelledby="result-modal-title" aria-modal="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="result-modal-title">Game Over</h2>
+        </div>
+        <div class="result-stats">
+          <div class="result-score">
+            <div class="result-label">Final Score</div>
+            <div class="result-value" id="result-final-score">0</div>
+          </div>
+          <div class="result-details">
+            <div class="result-detail">
+              <span class="result-detail-label">Mode</span>
+              <span class="result-detail-value" id="result-mode">Classic</span>
+            </div>
+            <div class="result-detail">
+              <span class="result-detail-label">Lines</span>
+              <span class="result-detail-value" id="result-lines">0</span>
+            </div>
+            <div class="result-detail">
+              <span class="result-detail-label">Level</span>
+              <span class="result-detail-value" id="result-level">1</span>
+            </div>
+          </div>
+          <div class="result-ranking" id="result-ranking-section">
+            <div class="result-label">Your Ranking</div>
+            <div class="result-rank" id="result-rank">#-</div>
+          </div>
+        </div>
+        <div class="modal-buttons">
+          <button class="modal-action-btn continue" id="game-result-menu-btn">Back to Menu</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Battle Screen -->
     <div class="battle-screen" id="battle-screen">
       <div class="battle-header">
@@ -960,6 +997,7 @@ function setupAuthListeners() {
   onAuthStateChange((user) => {
     currentUser = user
     renderAuthUI()
+    reloadHeartsOnAuthChange()
 
     if (user && pendingRankingSubmission) {
       void submitAuthenticatedRanking(pendingRankingSubmission)
@@ -2037,19 +2075,72 @@ async function handleGameOver() {
     country: getUserCountryFlag()
   }
 
+  // Submit ranking
   if (isAuthenticated()) {
     await submitAuthenticatedRanking(entry)
   } else {
-    pendingRankingSubmission = entry
-    showModal('auth-modal')
+    // For guest, save to local rankings only
+    addRanking(entry)
   }
 
-  returnToMenu()
+  // Show result modal
+  showResultModal()
+}
+
+function showResultModal() {
+  // Update result modal content
+  const finalScoreEl = document.getElementById('result-final-score')
+  const modeEl = document.getElementById('result-mode')
+  const linesEl = document.getElementById('result-lines')
+  const levelEl = document.getElementById('result-level')
+  const rankEl = document.getElementById('result-rank')
+
+  if (finalScoreEl) finalScoreEl.textContent = abbreviateScore(state.score)
+  if (modeEl) modeEl.textContent = getModeLabel(state.mode)
+  if (linesEl) linesEl.textContent = state.lines.toString()
+  if (levelEl) levelEl.textContent = state.level.toString()
+
+  // Calculate rank position
+  const rank = calculateRankPosition(state.score, state.mode)
+  if (rankEl) rankEl.textContent = rank > 0 ? `#${rank}` : '-'
+
+  showModal('result-modal')
+}
+
+function calculateRankPosition(score: number, mode: ModeKey): number {
+  const allRankings = loadRankings()
+  const modeRankings = allRankings.filter((r: RankingEntry) => r.mode === mode)
+  const position = modeRankings.filter((r: RankingEntry) => r.score > score).length + 1
+  return position
 }
 
 // ---------- Hearts ----------
 
+const GUEST_HEART_MAX = 1  // Guest gets 1 free game
+
+interface GuestHeartState {
+  hearts: number
+  usedFreeGame: boolean
+}
+
+function loadGuestHearts(): GuestHeartState {
+  const saved = localStorage.getItem('tetoris-guest-hearts')
+  if (saved) {
+    try {
+      return JSON.parse(saved) as GuestHeartState
+    } catch (e) {
+      return { hearts: GUEST_HEART_MAX, usedFreeGame: false }
+    }
+  }
+  return { hearts: GUEST_HEART_MAX, usedFreeGame: false }
+}
+
+function saveGuestHearts(state: GuestHeartState) {
+  localStorage.setItem('tetoris-guest-hearts', JSON.stringify(state))
+}
+
 function loadHearts(): HeartState {
+  // For logged in users, use server-synced hearts with recharge
   const saved = localStorage.getItem('tetoris-hearts')
   if (saved) {
     try {
@@ -2068,11 +2159,32 @@ function saveHearts() {
 
 function hasHeart() {
   if (heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now()) return true
+
+  // Guest user: check guest hearts
+  if (!isAuthenticated()) {
+    const guestState = loadGuestHearts()
+    return guestState.hearts > 0
+  }
+
+  // Logged in user: check normal hearts
   return heartState.hearts > 0
 }
 
 function consumeHeart() {
   if (heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now()) return
+
+  // Guest user: consume guest heart (no recharge)
+  if (!isAuthenticated()) {
+    const guestState = loadGuestHearts()
+    if (guestState.hearts > 0) {
+      guestState.hearts -= 1
+      guestState.usedFreeGame = true
+      saveGuestHearts(guestState)
+    }
+    return
+  }
+
+  // Logged in user: consume heart with recharge
   if (heartState.hearts > 0) {
     heartState.hearts -= 1
     heartState.rechargeQueue.push(Date.now() + HEART_RECHARGE_MS)
@@ -2081,6 +2193,13 @@ function consumeHeart() {
 }
 
 function tickHearts() {
+  // Guest users don't have recharge
+  if (!isAuthenticated()) {
+    renderHearts()
+    renderRecharge()
+    return
+  }
+
   const now = Date.now()
   heartState.rechargeQueue = heartState.rechargeQueue.sort((a, b) => a - b)
   while (heartState.hearts < HEART_MAX && heartState.rechargeQueue[0] && heartState.rechargeQueue[0] <= now) {
@@ -2096,8 +2215,21 @@ function tickHearts() {
 }
 
 function renderHearts() {
-  const hearts = heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now() ? HEART_MAX : heartState.hearts
   const unlimited = heartState.unlimitedUntil && heartState.unlimitedUntil > Date.now()
+
+  // Guest user: show guest hearts
+  if (!isAuthenticated()) {
+    const guestState = loadGuestHearts()
+    const full = '❤'
+    const empty = '♡'
+    const text = `${full.repeat(guestState.hearts)}${empty.repeat(GUEST_HEART_MAX - guestState.hearts)} (Guest)`
+    heartsEl.textContent = text
+    menuHeartsEl.textContent = text
+    return
+  }
+
+  // Logged in user: show normal hearts
+  const hearts = unlimited ? HEART_MAX : heartState.hearts
   const full = '❤'
   const empty = '♡'
   const text = unlimited ? '∞ (Unlimited)' : `${full.repeat(hearts)}${empty.repeat(HEART_MAX - hearts)}`
@@ -2106,6 +2238,19 @@ function renderHearts() {
 }
 
 function renderRecharge() {
+  // Guest user: no recharge
+  if (!isAuthenticated()) {
+    const guestState = loadGuestHearts()
+    if (guestState.hearts <= 0) {
+      rechargeEl.textContent = 'Login for more hearts'
+      menuRechargeEl.textContent = 'Login for more hearts'
+    } else {
+      rechargeEl.textContent = '1 free game available'
+      menuRechargeEl.textContent = '1 free game available'
+    }
+    return
+  }
+
   const now = Date.now()
   const next = heartState.rechargeQueue[0]
   let text = ''
@@ -2120,6 +2265,16 @@ function renderRecharge() {
   }
   rechargeEl.textContent = text
   menuRechargeEl.textContent = text
+}
+
+// Reload hearts when auth state changes
+function reloadHeartsOnAuthChange() {
+  if (isAuthenticated()) {
+    // Logged in: reload from localStorage (server-synced hearts)
+    heartState = loadHearts()
+  }
+  renderHearts()
+  renderRecharge()
 }
 
 // ---------- Input ----------
@@ -2236,6 +2391,12 @@ function bindEventListeners() {
 
   document.querySelector<HTMLButtonElement>('#revive-restart-btn')?.addEventListener('click', () => {
     handleGameOver()
+  })
+
+  // Game result modal - back to menu
+  document.querySelector<HTMLButtonElement>('#game-result-menu-btn')?.addEventListener('click', () => {
+    hideModal('result-modal')
+    returnToMenu()
   })
 
   // Auth modal - tab switching

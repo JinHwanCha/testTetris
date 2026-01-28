@@ -1795,6 +1795,66 @@ body {
   border-color: var(--accent);
 }
 
+/* Game Result Modal */
+.result-score {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.result-label {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.result-value {
+  font-size: 42px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.result-details {
+  display: flex;
+  justify-content: space-around;
+  padding: 16px;
+  background: var(--panel-2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.result-detail {
+  text-align: center;
+}
+
+.result-detail-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.result-detail-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.result-ranking {
+  text-align: center;
+  padding: 16px;
+  background: var(--panel-2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.result-rank {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
 /* Online Hearts Display */
 .online-hearts {
   display: flex;
