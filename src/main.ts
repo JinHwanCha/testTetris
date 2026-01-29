@@ -3296,7 +3296,7 @@ async function submitAuthenticatedRanking(entry: RankingEntry) {
   const { error } = await client.from('rankings').insert({
     user_id: user.id,
     display_name: user.displayName,
-    name: user.displayName || entry.name,
+    name: entry.name,  // 사용자가 입력한 커스텀 닉네임 사용
     score: entry.score,
     mode: entry.mode,
     country: entry.country || '🌐',
