@@ -2571,7 +2571,8 @@ interface GuestHeartState {
 }
 
 function loadGuestHearts(): GuestHeartState {
-  const saved = localStorage.getItem('tetoris-guest-hearts')
+  // Use sessionStorage for per-session free game (resets when browser closes)
+  const saved = sessionStorage.getItem('tetoris-guest-hearts')
   if (saved) {
     try {
       return JSON.parse(saved) as GuestHeartState
@@ -2583,7 +2584,7 @@ function loadGuestHearts(): GuestHeartState {
 }
 
 function saveGuestHearts(state: GuestHeartState) {
-  localStorage.setItem('tetoris-guest-hearts', JSON.stringify(state))
+  sessionStorage.setItem('tetoris-guest-hearts', JSON.stringify(state))
 }
 
 function loadHearts(): HeartState {
