@@ -702,6 +702,10 @@ app.innerHTML = `
       <p>Exciting cube-dropping action - Drop the Cube</p>
       <div class="loading-bar"><span id="loading-bar"></span></div>
       <div class="loading-text" id="loading-text">Preparing to load...</div>
+      <div class="loading-footer">
+        <img src="/potato-labs-logo.png" alt="Potato Labs" class="loading-company-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+        <span class="loading-company-text" style="display:none">Potato Labs</span>
+      </div>
     </div>
 
     <div class="menu-screen" id="menu-screen" role="main">
@@ -753,6 +757,17 @@ app.innerHTML = `
         <ul id="menu-ranking" class="ranking"></ul>
         <div class="ranking-pagination" id="ranking-pagination"></div>
       </div>
+      <footer class="site-footer">
+        <div class="footer-content">
+          <div class="footer-company">Potato Labs</div>
+          <div class="footer-info">
+            <span>Business Registration: 301-72-00574</span>
+            <span class="footer-divider">|</span>
+            <span>Contact: wlsksl103@gmail.com</span>
+          </div>
+          <div class="footer-copyright">© ${new Date().getFullYear()} Potato Labs. All rights reserved.</div>
+        </div>
+      </footer>
     </div>
 
     <div class="game-screen" id="game-screen" role="main">
@@ -1020,13 +1035,19 @@ app.innerHTML = `
               <span class="result-detail-value" id="result-level">1</span>
             </div>
           </div>
+          <div class="result-nickname">
+            <label class="result-label" for="result-nickname-input">Nickname for Ranking</label>
+            <input type="text" id="result-nickname-input" class="nickname-input" placeholder="Enter nickname..." maxlength="12" />
+            <div class="nickname-hint" id="nickname-hint"></div>
+          </div>
           <div class="result-ranking" id="result-ranking-section">
             <div class="result-label">Your Ranking</div>
             <div class="result-rank" id="result-rank">#-</div>
           </div>
         </div>
         <div class="modal-buttons">
-          <button class="modal-action-btn continue" id="game-result-menu-btn">Back to Menu</button>
+          <button class="modal-action-btn continue" id="game-result-submit-btn">Submit Score</button>
+          <button class="modal-action-btn restart" id="game-result-menu-btn">Skip & Back to Menu</button>
         </div>
       </div>
     </div>
@@ -2434,15 +2455,40 @@ function gameOver() {
   }
 }
 
+// Store pending game result for nickname submission
+let pendingGameResult: { score: number; mode: ModeKey; date: number; country: string } | null = null
+
 async function handleGameOver() {
   hideModal('revive-modal')
 
-  const entry: RankingEntry = {
-    name: currentUser?.displayName || 'Anonymous',
+  // Store game result for later submission with nickname
+  pendingGameResult = {
     score: state.score,
     mode: state.mode,
     date: Date.now(),
     country: getUserCountryFlag()
+  }
+
+  // Show result modal with nickname input
+  showResultModal()
+}
+
+// Get anonymized name (first character + ***)
+function getAnonymizedName(name: string): string {
+  if (!name || name.length === 0) return 'Anonymous'
+  const firstChar = name.charAt(0)
+  return `${firstChar}***`
+}
+
+async function submitGameResult(nickname: string) {
+  if (!pendingGameResult) return
+
+  const entry: RankingEntry = {
+    name: nickname || 'Anonymous',
+    score: pendingGameResult.score,
+    mode: pendingGameResult.mode,
+    date: pendingGameResult.date,
+    country: pendingGameResult.country
   }
 
   // Submit ranking
@@ -2451,12 +2497,12 @@ async function handleGameOver() {
   } else {
     // For guest, save to local rankings only
     addRanking(entry)
-    // Refresh menu ranking for guest too
-    await renderMenuRanking(currentRankingMode)
   }
 
-  // Show result modal
-  showResultModal()
+  // Refresh menu ranking
+  await renderMenuRanking(currentRankingMode)
+
+  pendingGameResult = null
 }
 
 function showResultModal() {
@@ -2466,11 +2512,31 @@ function showResultModal() {
   const linesEl = document.getElementById('result-lines')
   const levelEl = document.getElementById('result-level')
   const rankEl = document.getElementById('result-rank')
+  const nicknameInput = document.getElementById('result-nickname-input') as HTMLInputElement
+  const nicknameHint = document.getElementById('nickname-hint')
 
   if (finalScoreEl) finalScoreEl.textContent = abbreviateScore(state.score)
   if (modeEl) modeEl.textContent = getModeLabel(state.mode)
   if (linesEl) linesEl.textContent = state.lines.toString()
   if (levelEl) levelEl.textContent = state.level.toString()
+
+  // Set default nickname (anonymized if logged in)
+  if (nicknameInput) {
+    const defaultName = currentUser?.displayName
+      ? getAnonymizedName(currentUser.displayName)
+      : ''
+    nicknameInput.value = defaultName
+    nicknameInput.placeholder = 'Enter nickname (max 12 chars)'
+  }
+
+  // Show hint for logged in users
+  if (nicknameHint) {
+    if (currentUser?.displayName) {
+      nicknameHint.textContent = `Account: ${getAnonymizedName(currentUser.displayName)} (privacy protected)`
+    } else {
+      nicknameHint.textContent = ''
+    }
+  }
 
   // Calculate rank position
   const rank = calculateRankPosition(state.score, state.mode)
@@ -2794,8 +2860,19 @@ function bindEventListeners() {
     handleGameOver()
   })
 
-  // Game result modal - back to menu
+  // Game result modal - submit score with nickname
+  document.querySelector<HTMLButtonElement>('#game-result-submit-btn')?.addEventListener('click', async () => {
+    const nicknameInput = document.getElementById('result-nickname-input') as HTMLInputElement
+    const nickname = nicknameInput?.value.trim() || 'Anonymous'
+
+    await submitGameResult(nickname)
+    hideModal('result-modal')
+    returnToMenu()
+  })
+
+  // Game result modal - skip and back to menu (don't submit)
   document.querySelector<HTMLButtonElement>('#game-result-menu-btn')?.addEventListener('click', () => {
+    pendingGameResult = null // Clear pending result without submitting
     hideModal('result-modal')
     returnToMenu()
   })
