@@ -2596,17 +2596,18 @@ function showResultModal() {
     }
   }
 
-  // Calculate rank position
-  const rank = calculateRankPosition(state.score, state.mode)
-  if (rankEl) rankEl.textContent = rank > 0 ? `#${rank}` : '-'
+  // Calculate rank position (async)
+  if (rankEl) rankEl.textContent = '-'
+  calculateRankPosition(state.score, state.mode).then((rank) => {
+    if (rankEl) rankEl.textContent = rank > 0 ? `#${rank}` : '-'
+  })
 
   showModal('result-modal')
 }
 
-function calculateRankPosition(score: number, mode: ModeKey): number {
-  const allRankings = loadRankings()
-  const modeRankings = allRankings.filter((r: RankingEntry) => r.mode === mode)
-  const position = modeRankings.filter((r: RankingEntry) => r.score > score).length + 1
+async function calculateRankPosition(score: number, mode: ModeKey): Promise<number> {
+  const rankings = await fetchRankings(mode, 100)
+  const position = rankings.filter((r: RankingEntry) => r.score > score).length + 1
   return position
 }
 
@@ -3281,10 +3282,8 @@ function addRanking(entry: RankingEntry) {
 
 async function fetchRankings(mode: ModeKey | 'all', limit: number): Promise<RankingEntry[]> {
   const client = getSupabase()
-  const local = loadRankings()
-  const localFiltered = mode === 'all' ? local : local.filter((r) => r.mode === mode)
 
-  if (!client) return localFiltered.slice(0, limit)
+  if (!client) return []
 
   try {
     const query = client
@@ -3297,34 +3296,19 @@ async function fetchRankings(mode: ModeKey | 'all', limit: number): Promise<Rank
     const { data, error } = await query
     if (error || !data) {
       console.error('Supabase ranking fetch error:', error)
-      return localFiltered.slice(0, limit)
+      return []
     }
 
-    const supabaseRankings: RankingEntry[] = data.map((row) => ({
+    return data.map((row) => ({
       name: row.name ?? 'Unknown',
       score: row.score ?? 0,
       mode: (row.mode as ModeKey) ?? 'classic',
       date: row.created_at ? Date.parse(row.created_at as string) : Date.now(),
       country: row.country ?? '🌐'
     }))
-
-    // Merge local and Supabase rankings, remove duplicates by score+name+mode
-    const merged = [...supabaseRankings]
-    localFiltered.forEach((localEntry) => {
-      const isDuplicate = merged.some(
-        (r) => r.score === localEntry.score && r.name === localEntry.name && r.mode === localEntry.mode
-      )
-      if (!isDuplicate) {
-        merged.push(localEntry)
-      }
-    })
-
-    // Sort by score descending and return top entries
-    merged.sort((a, b) => b.score - a.score)
-    return merged.slice(0, limit)
   } catch (err) {
     console.error('Failed to fetch rankings:', err)
-    return localFiltered.slice(0, limit)
+    return []
   }
 }
 
