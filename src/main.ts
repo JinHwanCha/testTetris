@@ -712,6 +712,7 @@ app.innerHTML = `
       <div class="menu-header">
         <div class="menu-logo" role="heading" aria-level="1">Drop the Cube</div>
         <p class="menu-tagline">Exciting cube-dropping action - Drop the Cube</p>
+        <div id="menu-auth-container"></div>
       </div>
       <div class="mode-grid" role="group" aria-label="Select game mode">
         <button class="mode-card" data-mode="classic" aria-label="Classic Mode: Enjoy the original Drop the Cube at a steady speed">
@@ -746,7 +747,10 @@ app.innerHTML = `
         </div>
       </div>
       <div class="menu-ranking">
-        <h3><span aria-hidden="true">🏆</span> Hall of Fame</h3>
+        <div class="ranking-header">
+          <h3><span aria-hidden="true">🏆</span> Hall of Fame</h3>
+          <span class="ranking-week" id="ranking-week"></span>
+        </div>
         <div class="ranking-tabs" id="ranking-tabs" role="tablist" aria-label="Ranking filter">
           <button data-mode="all" class="active">All</button>
           <button data-mode="classic">Classic</button>
@@ -1190,6 +1194,7 @@ let rankingTabs: HTMLDivElement
 // Auth state
 let currentUser: AuthUser | null = null
 let authContainer: HTMLDivElement
+let menuAuthContainer: HTMLDivElement
 let pendingRankingSubmission: RankingEntry | null = null
 
 const state: GameState = {
@@ -1255,6 +1260,7 @@ function initializeDOM() {
   gameScreen = document.querySelector<HTMLDivElement>('#game-screen')!
   rankingTabs = document.querySelector<HTMLDivElement>('#ranking-tabs')!
   authContainer = document.querySelector<HTMLDivElement>('#auth-container')!
+  menuAuthContainer = document.querySelector<HTMLDivElement>('#menu-auth-container')!
 
   applyTheme(loadTheme())
   renderThemeList()
@@ -1262,6 +1268,7 @@ function initializeDOM() {
   renderHearts()
   renderRecharge()
   void renderMenuRanking('all')
+  renderRankingWeek()
   bindModeCards()
   bindRankingTabs()
   bindBattleButtons()
@@ -1349,12 +1356,25 @@ function renderAuthUI() {
     `
 
     document.querySelector('#logout-btn')?.addEventListener('click', handleLogout)
+
+    // Hide login button on menu screen when logged in
+    if (menuAuthContainer) {
+      menuAuthContainer.innerHTML = ''
+    }
   } else {
     authContainer.innerHTML = `
       <button class="auth-btn" id="login-btn">Login</button>
     `
 
     document.querySelector('#login-btn')?.addEventListener('click', () => showModal('auth-modal'))
+
+    // Show login button on menu screen for guests
+    if (menuAuthContainer) {
+      menuAuthContainer.innerHTML = `
+        <button class="menu-login-btn" id="menu-login-btn">🔐 Login</button>
+      `
+      document.querySelector('#menu-login-btn')?.addEventListener('click', () => showModal('auth-modal'))
+    }
   }
 }
 
@@ -1532,6 +1552,44 @@ async function renderRanking() {
           )
           .join('')
       : '<li style="text-align:center;color:var(--muted);grid-column:1/-1">No records yet</li>'
+}
+
+// Get current week number of the month (Monday-based, matching reset schedule)
+function getCurrentWeekOfMonth(): { month: string; week: number } {
+  const now = new Date()
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December']
+
+  // Get the first day of the month
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  // Find the first Monday of the month (or use day 1 if it's Monday)
+  const firstMonday = new Date(firstDay)
+  const dayOfWeek = firstDay.getDay()
+  if (dayOfWeek !== 1) {
+    // Move to next Monday (0=Sun, so Mon=1)
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek
+    firstMonday.setDate(firstDay.getDate() + daysUntilMonday)
+  }
+
+  // Calculate week number
+  let week: number
+  if (now < firstMonday) {
+    week = 1 // Before first Monday = Week 1
+  } else {
+    const diffDays = Math.floor((now.getTime() - firstMonday.getTime()) / (1000 * 60 * 60 * 24))
+    week = Math.floor(diffDays / 7) + 1
+  }
+
+  return { month: monthNames[now.getMonth()], week }
+}
+
+function renderRankingWeek() {
+  const weekEl = document.querySelector<HTMLSpanElement>('#ranking-week')
+  if (!weekEl) return
+
+  const { month, week } = getCurrentWeekOfMonth()
+  weekEl.textContent = `${month} Week ${week}`
 }
 
 async function renderMenuRanking(mode: ModeKey | 'all', page: number = 0) {
