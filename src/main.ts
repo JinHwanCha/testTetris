@@ -2627,19 +2627,31 @@ const GUEST_HEART_MAX = 1  // Guest gets 1 free game
 interface GuestHeartState {
   hearts: number
   usedFreeGame: boolean
+  lastResetDate: string  // YYYY-MM-DD for daily reset within session
+}
+
+function getTodayDateString(): string {
+  return new Date().toISOString().split('T')[0]
 }
 
 function loadGuestHearts(): GuestHeartState {
-  // Use sessionStorage for per-session free game (resets when browser closes)
+  // Use sessionStorage + daily reset (resets when browser closes OR new day)
   const saved = sessionStorage.getItem('tetoris-guest-hearts')
+  const today = getTodayDateString()
+
   if (saved) {
     try {
-      return JSON.parse(saved) as GuestHeartState
+      const parsed = JSON.parse(saved) as GuestHeartState
+      // Reset if it's a new day within the same session
+      if (parsed.lastResetDate !== today) {
+        return { hearts: GUEST_HEART_MAX, usedFreeGame: false, lastResetDate: today }
+      }
+      return parsed
     } catch (e) {
-      return { hearts: GUEST_HEART_MAX, usedFreeGame: false }
+      return { hearts: GUEST_HEART_MAX, usedFreeGame: false, lastResetDate: today }
     }
   }
-  return { hearts: GUEST_HEART_MAX, usedFreeGame: false }
+  return { hearts: GUEST_HEART_MAX, usedFreeGame: false, lastResetDate: today }
 }
 
 function saveGuestHearts(state: GuestHeartState) {
