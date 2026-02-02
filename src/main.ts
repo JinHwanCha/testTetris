@@ -2623,6 +2623,7 @@ function isSuperAccount(): boolean {
 }
 
 const GUEST_HEART_MAX = 1  // Guest gets 1 free game
+const GUEST_HEART_STORAGE_KEY = 'tetoris-guest-hearts'
 
 interface GuestHeartState {
   hearts: number
@@ -2635,14 +2636,20 @@ function getTodayDateString(): string {
 }
 
 function loadGuestHearts(): GuestHeartState {
-  // Use sessionStorage + daily reset (resets when browser closes OR new day)
-  const saved = sessionStorage.getItem('tetoris-guest-hearts')
+  // Use localStorage + daily reset (persists across sessions per device)
+  let saved = localStorage.getItem(GUEST_HEART_STORAGE_KEY)
+  const legacy = sessionStorage.getItem('tetoris-guest-hearts')
+  if (!saved && legacy) {
+    localStorage.setItem(GUEST_HEART_STORAGE_KEY, legacy)
+    sessionStorage.removeItem('tetoris-guest-hearts')
+    saved = legacy
+  }
   const today = getTodayDateString()
 
   if (saved) {
     try {
       const parsed = JSON.parse(saved) as GuestHeartState
-      // Reset if it's a new day within the same session
+      // Reset if it's a new day
       if (parsed.lastResetDate !== today) {
         return { hearts: GUEST_HEART_MAX, usedFreeGame: false, lastResetDate: today }
       }
@@ -2655,7 +2662,7 @@ function loadGuestHearts(): GuestHeartState {
 }
 
 function saveGuestHearts(state: GuestHeartState) {
-  sessionStorage.setItem('tetoris-guest-hearts', JSON.stringify(state))
+  localStorage.setItem(GUEST_HEART_STORAGE_KEY, JSON.stringify(state))
 }
 
 function loadHearts(): HeartState {
