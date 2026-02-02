@@ -976,38 +976,13 @@ app.innerHTML = `
         </div>
         <p class="modal-message">Please log in to submit your score to the leaderboard</p>
 
-        <div class="auth-tabs">
-          <button class="auth-tab active" data-tab="login">Login</button>
-          <button class="auth-tab" data-tab="signup">Sign Up</button>
-        </div>
+        <button class="auth-google-btn" id="google-login-btn">
+          <span class="google-icon">G</span>
+          Continue with Google
+        </button>
+        <p class="auth-helper">Start quickly without creating an account.</p>
 
-        <div id="auth-login-form" class="auth-form active">
-          <button class="auth-google-btn" id="google-login-btn">
-            <span class="google-icon">G</span>
-            Continue with Google
-          </button>
-
-          <div class="auth-divider"><span>or</span></div>
-
-          <input type="email" id="login-email" placeholder="Email" class="auth-input" />
-          <input type="password" id="login-password" placeholder="Password" class="auth-input" />
-          <button class="auth-submit-btn" id="login-submit-btn">Log In</button>
-          <div class="auth-error" id="login-error"></div>
-        </div>
-
-        <div id="auth-signup-form" class="auth-form">
-          <button class="auth-google-btn" id="google-signup-btn">
-            <span class="google-icon">G</span>
-            Continue with Google
-          </button>
-
-          <div class="auth-divider"><span>or</span></div>
-
-          <input type="email" id="signup-email" placeholder="Email" class="auth-input" />
-          <input type="password" id="signup-password" placeholder="Password (min 6 characters)" class="auth-input" />
-          <button class="auth-submit-btn" id="signup-submit-btn">Sign Up</button>
-          <div class="auth-error" id="signup-error"></div>
-        </div>
+        <div class="auth-error" id="login-error"></div>
 
         <button class="modal-action-btn" id="auth-guest-btn">Continue as Guest</button>
       </div>
@@ -2957,58 +2932,15 @@ function bindEventListeners() {
   })
 
   // Auth modal - tab switching
-  document.querySelectorAll<HTMLButtonElement>('.auth-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const targetTab = tab.dataset.tab
-      if (targetTab) {
-        document.querySelectorAll('.auth-tab').forEach((t) => t.classList.remove('active'))
-        tab.classList.add('active')
-        document.querySelectorAll('.auth-form').forEach((f) => f.classList.remove('active'))
-        document.querySelector(`#auth-${targetTab}-form`)?.classList.add('active')
-      }
-    })
-  })
-
-  // Auth modal - Google login buttons
   document.querySelector('#google-login-btn')?.addEventListener('click', (e) => {
     e.preventDefault()
     void handleGoogleLogin()
-  })
-  document.querySelector('#google-signup-btn')?.addEventListener('click', (e) => {
-    e.preventDefault()
-    void handleGoogleLogin()
-  })
-
-  // Auth modal - Email login
-  document.querySelector('#login-submit-btn')?.addEventListener('click', (e) => {
-    e.preventDefault()
-    void handleEmailLogin()
-  })
-
-  // Auth modal - Email signup
-  document.querySelector('#signup-submit-btn')?.addEventListener('click', (e) => {
-    e.preventDefault()
-    void handleEmailSignup()
   })
 
   // Auth modal - Guest button
   document.querySelector('#auth-guest-btn')?.addEventListener('click', () => {
     hideModal('auth-modal')
     pendingRankingSubmission = null
-  })
-
-  // Auth modal - Enter key on password fields
-  document.querySelector('#login-password')?.addEventListener('keypress', (e) => {
-    if ((e as KeyboardEvent).key === 'Enter') {
-      e.preventDefault()
-      void handleEmailLogin()
-    }
-  })
-  document.querySelector('#signup-password')?.addEventListener('keypress', (e) => {
-    if ((e as KeyboardEvent).key === 'Enter') {
-      e.preventDefault()
-      void handleEmailSignup()
-    }
   })
 
   themeBtn.addEventListener('click', cycleTheme)

@@ -1381,6 +1381,15 @@ body {
 }
 
 /* Auth Modal Styles */
+#auth-modal .modal-content {
+  padding: 28px;
+}
+
+#auth-modal .modal-message {
+  margin-bottom: 20px;
+  color: var(--muted);
+}
+
 .auth-tabs {
   display: flex;
   gap: 8px;
@@ -1423,26 +1432,39 @@ body {
   justify-content: center;
   gap: 12px;
   padding: 12px 20px;
+  width: 100%;
+  min-height: 48px;
   background: white;
   color: #1f1f1f;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
   font-weight: 600;
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
 .auth-google-btn:hover {
-  background: #f8f9fa;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border-color: #d0d7de;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
 }
 
 .google-icon {
-  font-weight: bold;
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #e6e6e6;
+  font-weight: 700;
+  font-size: 16px;
   color: #4285f4;
+  background: #fff;
 }
 
 .auth-divider {
@@ -1507,11 +1529,20 @@ body {
   min-height: 20px;
 }
 
+.auth-helper {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
 #auth-guest-btn {
   margin-top: 8px;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--muted);
+  width: 100%;
+  border-radius: 12px;
 }
 
 #auth-guest-btn:hover {
