@@ -7,8 +7,6 @@ import {
   getCurrentUser,
   isAuthenticated,
   signInWithGoogle,
-  signUpWithEmail,
-  signInWithEmail,
   signOut,
   onAuthStateChange,
   type AuthUser
