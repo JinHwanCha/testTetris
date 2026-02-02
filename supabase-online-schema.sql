@@ -123,6 +123,7 @@ DROP POLICY IF EXISTS "Users can read own history" ON public.match_history;
 DROP POLICY IF EXISTS "Authenticated users can insert history" ON public.match_history;
 DROP POLICY IF EXISTS "Anyone can view rankings" ON public.rankings;
 DROP POLICY IF EXISTS "Authenticated users can insert rankings" ON public.rankings;
+DROP POLICY IF EXISTS "Anyone can insert rankings" ON public.rankings;
 
 -- =============================================
 -- RLS 정책 생성
@@ -172,8 +173,8 @@ CREATE POLICY "Authenticated users can insert history" ON public.match_history
 CREATE POLICY "Anyone can view rankings" ON public.rankings
   FOR SELECT USING (true);
 
-CREATE POLICY "Authenticated users can insert rankings" ON public.rankings
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Anyone can insert rankings" ON public.rankings
+  FOR INSERT WITH CHECK (true);
 
 -- =============================================
 -- Realtime 활성화

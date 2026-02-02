@@ -2553,8 +2553,8 @@ async function submitGameResult(nickname: string) {
   if (isAuthenticated()) {
     await submitAuthenticatedRanking(entry)
   } else {
-    // For guest, save to local rankings only
-    addRanking(entry)
+    // For guest, submit to public rankings and local cache
+    await submitRanking(entry)
   }
 
   // Refresh menu ranking
