@@ -1387,66 +1387,11 @@ async function handleGoogleLogin() {
   }
 }
 
-async function handleEmailLogin() {
-  const emailInput = document.querySelector<HTMLInputElement>('#login-email')!
-  const passwordInput = document.querySelector<HTMLInputElement>('#login-password')!
-  const email = emailInput.value.trim()
-  const password = passwordInput.value
-
-  clearAuthError('login')
-
-  if (!email || !password) {
-    showAuthError('login', 'Please enter email and password')
-    return
-  }
-
-  try {
-    await signInWithEmail(email, password)
-  } catch (error: any) {
-    showAuthError('login', error.message || 'Invalid email or password')
-  }
-}
-
-async function handleEmailSignup() {
-  const emailInput = document.querySelector<HTMLInputElement>('#signup-email')!
-  const passwordInput = document.querySelector<HTMLInputElement>('#signup-password')!
-  const email = emailInput.value.trim()
-  const password = passwordInput.value
-
-  clearAuthError('signup')
-
-  if (!email || !password) {
-    showAuthError('signup', 'Please enter email and password')
-    return
-  }
-
-  if (password.length < 6) {
-    showAuthError('signup', 'Password must be at least 6 characters')
-    return
-  }
-
-  try {
-    await signUpWithEmail(email, password)
-    showAuthError('signup', 'Check your email to confirm your account!', false)
-    emailInput.value = ''
-    passwordInput.value = ''
-  } catch (error: any) {
-    showAuthError('signup', error.message || 'Failed to sign up')
-  }
-}
-
 function showAuthError(form: 'login' | 'signup', message: string, isError = true) {
   const errorEl = document.querySelector<HTMLDivElement>(`#${form}-error`)
   if (errorEl) {
     errorEl.textContent = message
     errorEl.style.color = isError ? '#ff6b6b' : '#4ade80'
-  }
-}
-
-function clearAuthError(form: 'login' | 'signup') {
-  const errorEl = document.querySelector<HTMLDivElement>(`#${form}-error`)
-  if (errorEl) {
-    errorEl.textContent = ''
   }
 }
 
