@@ -2434,6 +2434,8 @@ function gameOver() {
 // Store pending game result for nickname submission
 let pendingGameResult: { score: number; mode: ModeKey; date: number; country: string } | null = null
 
+const NICKNAME_STORAGE_PREFIX = 'tetoris-nickname-'
+
 async function handleGameOver() {
   hideModal('revive-modal')
 
@@ -2456,15 +2458,36 @@ function getAnonymizedName(name: string): string {
   return `${firstChar}***`
 }
 
+function getSavedNickname(userId: string): string {
+  const saved = localStorage.getItem(`${NICKNAME_STORAGE_PREFIX}${userId}`)
+  return saved?.trim() ?? ''
+}
+
+function saveNickname(userId: string, nickname: string) {
+  if (!nickname) return
+  localStorage.setItem(`${NICKNAME_STORAGE_PREFIX}${userId}`, nickname)
+}
+
+function normalizeNickname(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) return 'Anonymous'
+  return trimmed.slice(0, 12)
+}
+
 async function submitGameResult(nickname: string) {
   if (!pendingGameResult) return
 
   const entry: RankingEntry = {
-    name: nickname || 'Anonymous',
+    name: normalizeNickname(nickname),
     score: pendingGameResult.score,
     mode: pendingGameResult.mode,
     date: pendingGameResult.date,
     country: pendingGameResult.country
+  }
+
+  const user = getCurrentUser()
+  if (user?.id) {
+    saveNickname(user.id, entry.name)
   }
 
   // Submit ranking
@@ -2498,17 +2521,17 @@ function showResultModal() {
 
   // Set default nickname (anonymized if logged in)
   if (nicknameInput) {
-    const defaultName = currentUser?.displayName
-      ? getAnonymizedName(currentUser.displayName)
-      : ''
-    nicknameInput.value = defaultName
+    const savedNickname = currentUser?.id ? getSavedNickname(currentUser.id) : ''
+    nicknameInput.value = savedNickname
     nicknameInput.placeholder = 'Enter nickname (max 12 chars)'
+    nicknameInput.readOnly = false
+    nicknameInput.disabled = false
   }
 
   // Show hint for logged in users
   if (nicknameHint) {
     if (currentUser?.displayName) {
-      nicknameHint.textContent = `Account: ${getAnonymizedName(currentUser.displayName)} (privacy protected)`
+      nicknameHint.textContent = `Account: ${getAnonymizedName(currentUser.displayName)} (you can set a custom nickname)`
     } else {
       nicknameHint.textContent = ''
     }
